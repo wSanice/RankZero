@@ -1,0 +1,207 @@
+import { useMemo, useRef, useState } from 'react'
+import { Camera, Lock, LogOut, Plus, Save } from 'lucide-react'
+import { supabase } from '../lib/supabase'
+import { useSession } from '../context/SessionContext'
+import { useQuery, must } from '../lib/useQuery'
+import { ATTRS, CLASSES, SECOND_CLASS_LEVEL, TITLE_LEVEL, fmt, fmt1, localDate, titleFor, xpToNext } from '../lib/rpg'
+import { BigStat, Btn, Chip, ErrorNote, Loading, Panel, RankBadge, SegBar, SysHead } from '../components/ui'
+
+export default function Perfil() {
+  const { profile: p, user, updateProfile, notify, signOut } = useSession()
+  const [hunter, setHunter] = useState(p.hunter_name || '')
+  const [uploading, setUploading] = useState(false)
+  const fileRef = useRef(null)
+  const need = xpToNext(p.level)
+
+  const logs = useQuery(async () =>
+    must(
+      await supabase
+        .from('weight_logs')
+        .select('weight, reps, logged_at, exercise:exercises(name)')
+        .order('logged_at', { ascending: false })
+        .limit(1000)
+    ), [user.id])
+
+  const stats = useMemo(() => {
+    const rows = logs.data || []
+    const days = new Set(rows.map((r) => localDate(new Date(r.logged_at))))
+    const volume = rows.reduce((s, r) => s + Number(r.weight) * Math.max(r.reps || 1, 1), 0)
+    const best = {}
+    for (const r of rows) {
+      const n = r.exercise?.name
+      if (!n || !(Number(r.weight) > 0)) continue
+      if (!best[n] || Number(r.weight) > Number(best[n].weight)) best[n] = r
+    }
+    const prs = Object.entries(best).sort((a, b) => Number(b[1].weight) - Number(a[1].weight)).slice(0, 5)
+    return { sets: rows.length, days: days.size, volume, prs }
+  }, [logs.data])
+
+  const addPoint = (key) => {
+    if (p.free_points <= 0) return
+    updateProfile({ [key]: p[key] + 1, free_points: p.free_points - 1 })
+  }
+
+  const setClasses = async ({ primary = p.class, second = p.second_class }) => {
+    const patch = { class: primary, second_class: second === primary ? null : second }
+    if (p.title) patch.title = titleFor(patch.class, patch.second_class)
+    await updateProfile(patch)
+  }
+
+  const claimTitle = async () => {
+    const t = titleFor(p.class, p.second_class)
+    if (t && (await updateProfile({ title: t }))) notify(`TÍTULO CONQUISTADO: ${t.toUpperCase()}`, 'gold')
+  }
+
+  const saveName = async () => {
+    const v = hunter.trim()
+    if (v === (p.hunter_name || '')) return
+    if (await updateProfile({ hunter_name: v || null })) notify('NOME DE CAÇADOR ATUALIZADO')
+  }
+
+  const upload = async (e) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+    if (file.size > 3 * 1024 * 1024) return notify('A imagem precisa ter no máximo 3 MB.', 'red')
+    setUploading(true)
+    const ext = file.name.split('.').pop()?.toLowerCase() || 'jpg'
+    const path = `${user.id}/avatar-${Date.now()}.${ext}`
+    const { error } = await supabase.storage.from('avatars').upload(path, file, { upsert: true, contentType: file.type })
+    if (error) {
+      setUploading(false)
+      return notify(`Falha no upload: ${error.message}`, 'red')
+    }
+    const { data } = supabase.storage.from('avatars').getPublicUrl(path)
+    await updateProfile({ avatar_url: data.publicUrl })
+    setUploading(false)
+    notify('FOTO ATUALIZADA')
+  }
+
+  return (
+    <div className="stack">
+      <Panel brackets>
+        <div className="row gap">
+          <button className="avatar" onClick={() => fileRef.current?.click()} aria-label="Trocar foto de perfil" disabled={uploading}>
+            {p.avatar_url ? <img src={p.avatar_url} alt="" /> : <span>{(p.hunter_name || p.name || '?')[0].toUpperCase()}</span>}
+            <span className="avatar-cam"><Camera size={14} /></span>
+          </button>
+          <input ref={fileRef} type="file" accept="image/*" hidden onChange={upload} />
+          <div className="grow">
+            <div className="row gap wrap">
+              <Chip tone="violet">{CLASSES[p.class]?.short || 'Colosso'}</Chip>
+              {p.second_class && <Chip tone="violet">{CLASSES[p.second_class]?.short}</Chip>}
+              {p.title && <Chip tone="gold">{p.title}</Chip>}
+              <Chip tone="slate">RANK {p.rank}</Chip>
+            </div>
+            <h2 className="h-xl">{p.hunter_name || p.name}</h2>
+            <p className="mono tiny dim">{user.email}</p>
+          </div>
+          <RankBadge rank={p.rank} size="lg" />
+        </div>
+
+        <label className="field">
+          <span className="mono tiny">NOME DE CAÇADOR</span>
+          <div className="field-box">
+            <input value={hunter} onChange={(e) => setHunter(e.target.value)} onBlur={saveName} placeholder={p.name || 'Como o sistema chama você'} maxLength={30} />
+            <button className="icon-btn plain" onClick={saveName} aria-label="Salvar nome"><Save size={16} /></button>
+          </div>
+        </label>
+
+        <div className="row between end">
+          <BigStat value={p.level} unit="LVL" />
+          <span className="mono tiny cyan">{fmt(p.xp)} / {fmt(need)} EXP</span>
+        </div>
+        <SegBar value={p.xp} max={need} segments={20} label="Experiência" />
+      </Panel>
+
+      <Panel>
+        <SysHead right={<Chip tone={p.free_points ? 'cyan' : 'slate'}>{p.free_points} PONTOS LIVRES</Chip>}>[CLASSES E TÍTULO]</SysHead>
+
+        <p className="mono tiny dim">CLASSE INICIAL · NÍVEL 1</p>
+        <div className="class-row">
+          {Object.values(CLASSES).map((c) => (
+            <button key={c.key} className={`class-opt ${p.class === c.key ? 'on' : ''}`} onClick={() => setClasses({ primary: c.key })} aria-pressed={p.class === c.key}>
+              <b className="h-md">{c.short}</b>
+              <span className="mono tiny dim">+ {c.attrLabel.toUpperCase()}</span>
+            </button>
+          ))}
+        </div>
+        <p className="muted">{CLASSES[p.class]?.label}: {CLASSES[p.class]?.focus}.</p>
+
+        <p className="mono tiny dim">SEGUNDA CLASSE · NÍVEL {SECOND_CLASS_LEVEL}</p>
+        {p.level >= SECOND_CLASS_LEVEL ? (
+          <div className="class-row">
+            {Object.values(CLASSES).filter((c) => c.key !== p.class).map((c) => (
+              <button key={c.key} className={`class-opt ${p.second_class === c.key ? 'on' : ''}`} onClick={() => setClasses({ second: c.key })} aria-pressed={p.second_class === c.key}>
+                <b className="h-md">{c.short}</b>
+                <span className="mono tiny dim">+ {c.attrLabel.toUpperCase()}</span>
+              </button>
+            ))}
+          </div>
+        ) : (
+          <div className="locked mono"><Lock size={14} /> Bloqueada. Faltam {SECOND_CLASS_LEVEL - p.level} níveis.</div>
+        )}
+
+        <p className="mono tiny dim">TÍTULO · NÍVEL {TITLE_LEVEL}</p>
+        {p.level < TITLE_LEVEL ? (
+          <div className="locked mono"><Lock size={14} /> Bloqueado. Faltam {TITLE_LEVEL - p.level} níveis.</div>
+        ) : p.title ? (
+          <div className="title-badge"><span className="mono tiny">TÍTULO ATIVO</span><b className="h-lg">{p.title}</b></div>
+        ) : p.second_class ? (
+          <Btn variant="ghost" onClick={claimTitle}>Conquistar título: {titleFor(p.class, p.second_class)}</Btn>
+        ) : (
+          <div className="locked mono"><Lock size={14} /> Escolha sua segunda classe para revelar o título.</div>
+        )}
+      </Panel>
+
+      {ATTRS.map((a) => (
+        <Panel key={a.key} className={`attr attr-${a.tone}`}>
+          <div className="row between">
+            <div>
+              <p className="mono tiny dim">{a.code}</p>
+              <h3 className="h-lg">{a.label}</h3>
+              <p className="muted">{a.desc}</p>
+            </div>
+            <div className="row gap">
+              <BigStat value={p[a.key]} />
+              <button className="plus" disabled={p.free_points <= 0} onClick={() => addPoint(a.key)} aria-label={`Adicionar ponto em ${a.label}`}>
+                <Plus size={18} />
+              </button>
+            </div>
+          </div>
+        </Panel>
+      ))}
+
+      <Panel>
+        <SysHead>[REGISTRO DE COMBATE: HISTÓRICO]</SysHead>
+        {logs.loading ? (
+          <Loading />
+        ) : logs.error ? (
+          <ErrorNote error={logs.error} />
+        ) : (
+          <>
+            <div className="grid3">
+              <div className="reward"><b>{fmt(stats.days)}</b><span className="mono tiny dim">DIAS TREINADOS</span></div>
+              <div className="reward"><b>{fmt(stats.sets)}</b><span className="mono tiny dim">SÉRIES</span></div>
+              <div className="reward"><b>{fmt(stats.volume / 1000)} t</b><span className="mono tiny dim">VOLUME TOTAL</span></div>
+            </div>
+            <h4 className="mono tiny dim">MAIORES CARGAS</h4>
+            {stats.prs.length ? (
+              <ul className="log-list">
+                {stats.prs.map(([name, r]) => (
+                  <li key={name}>
+                    <span>{name}</span>
+                    <span className="mono gold">{fmt1(r.weight)} kg × {r.reps}</span>
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p className="muted">Nenhum recorde ainda. Registre séries no treino para preencher esta lista.</p>
+            )}
+          </>
+        )}
+      </Panel>
+
+      <Btn variant="danger" icon={LogOut} onClick={signOut}>Sair do sistema</Btn>
+    </div>
+  )
+}
