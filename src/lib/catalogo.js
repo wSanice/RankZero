@@ -48,7 +48,7 @@ export const CATALOGO = [
   { name: 'ANTEBRAÇO', icon: 'barra', exercises: ['Rosca inversa'] },
 
   // ===================== 8. TRÍCEPS =====================
-  { name: 'CROSS OVER', icon: 'cross', exercises: ['Tríceps na polia', 'Crucifixo na polia', 'Face pull', 'Rosca na polia', 'Tríceps extensão de cotovelo', 'Tríceps invertido na polia', 'Tríceps diagonal na polia'] },
+  { name: 'CROSS OVER', icon: 'cross', exercises: ['Tríceps na polia', 'Tríceps na polia corda','Crucifixo na polia', 'Face pull', 'Rosca na polia', 'Tríceps extensão de cotovelo', 'Tríceps invertido na polia', 'Tríceps diagonal na polia'] },
   { name: 'MESA PARA TRÍCEPS TESTA', icon: 'testa', exercises: ['Tríceps testa com barra'] },
 
   // ===================== LIVRES (halteres / barra) =====================
