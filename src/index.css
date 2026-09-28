@@ -24,6 +24,8 @@
 
 * { box-sizing: border-box; margin: 0; }
 html, body, #root { min-height: 100%; }
+html, body { overflow-x: hidden; width: 100%; }
+#root { overflow-x: clip; }
 body {
   background-color: var(--void);
   background-image:
@@ -84,7 +86,7 @@ input { font: inherit; color: inherit; }
 .topbar-title { flex: 1; min-width: 0; }
 .topbar-title h1 { font-size: 22px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .nav {
-  position: fixed; bottom: 0; left: 50%; transform: translateX(-50%); width: 100%; max-width: 640px; z-index: 30;
+  position: fixed; bottom: 0; left: 0; right: 0; margin: 0 auto; width: 100%; max-width: 640px; z-index: 30;
   display: grid; grid-template-columns: repeat(4, 1fr);
   padding-bottom: env(safe-area-inset-bottom, 0px);
   background: rgba(8, 10, 15, 0.94); backdrop-filter: blur(12px); border-top: 1px solid var(--line);
