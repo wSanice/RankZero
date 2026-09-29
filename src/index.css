@@ -260,7 +260,12 @@ input.num:focus { outline: 0; border-color: var(--cyan); box-shadow: 0 0 10px rg
 .cat-list .opt { justify-content: flex-start; }
 .cat-list .opt.on { color: var(--cyan); }
 .cat-list input[type='checkbox'] { accent-color: var(--cyan); width: 18px; height: 18px; }
-
+.search-sticky {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  background: var(--iron);
+}
 /* ---------- perfil ---------- */
 .avatar { position: relative; width: 72px; height: 72px; flex: none; border: 1px solid var(--cyan); background: var(--void); display: grid; place-items: center; font: 800 32px var(--f-display); color: var(--cyan); overflow: hidden; }
 .avatar img { width: 100%; height: 100%; object-fit: cover; }
