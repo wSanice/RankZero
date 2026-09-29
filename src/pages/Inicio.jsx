@@ -29,15 +29,6 @@ export default function Inicio({ go }) {
         </p>
       </Panel>
 
-      {p.free_points > 0 && (
-        <Panel tone="cyan" className="alert">
-          <p className="mono tiny cyan">PONTOS DE ATRIBUTO</p>
-          <h3 className="h-lg">{p.free_points} pontos disponíveis</h3>
-          <p className="muted">Você subiu de nível. Aloque os pontos nos seus atributos primários.</p>
-          <Btn onClick={() => go('perfil')}>Distribuir</Btn>
-        </Panel>
-      )}
-
       <Panel>
         <SysHead right={<Chip tone="violet">CLASSE ATIVA</Chip>}>[NÍVEL E EXPERIÊNCIA]</SysHead>
         <div className="row between end">

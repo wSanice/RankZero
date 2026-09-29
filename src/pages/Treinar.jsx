@@ -3,10 +3,10 @@ import { ChevronLeft, ChevronRight, Flame, SkipForward, Swords, Timer, Zap } fro
 import { supabase } from '../lib/supabase'
 import { useSession } from '../context/SessionContext'
 import { useNow, useQuery, must } from '../lib/useQuery'
-import { getBoss } from '../lib/data'
 import { flatExercises, getWorkouts } from '../lib/workouts'
 import { clock, damageOf, damageOfMinutes, fmt, fmt1, levelUnlocks, localDate, xpOf } from '../lib/rpg'
 import { Btn, Chip, Empty, ErrorNote, Loading, Panel, SegBar, SysHead } from '../components/ui'
+import { getBoss, getDailyMonster } from '../lib/data'
 
 const REST_KEY = 'abibas_rest_seconds'
 export const getRestSeconds = () => Number(localStorage.getItem(REST_KEY)) || 90
@@ -76,6 +76,20 @@ function SessionView({ workout, onExit, go }) {
     getBoss(user.id).then(setBoss).catch(() => {})
   }, [user.id])
 
+  const [daily, setDaily] = useState(null)
+
+  // se o boss ativo hoje É o mini-boss do marco de 15 dias, ele substitui o monstro diário
+  const isMiniBossDay = boss && boss.status === 'active' && boss.name?.startsWith('SENTINELA DO MARCO')
+
+  useEffect(() => {
+    if (boss === null) return // ainda não sabemos se tem mini-boss hoje, espera
+    if (isMiniBossDay) {
+      setDaily(null)
+      return
+    }
+    getDailyMonster(user.id, profile.level).then(setDaily).catch(() => {})
+  }, [user.id, isMiniBossDay, boss])
+
   // histórico: último dia anterior em que este exercício foi feito (apenas exibição)
   const hist = useQuery(async () => {
     if (!ex) return []
@@ -137,13 +151,28 @@ function SessionView({ workout, onExit, go }) {
       notify(`NÍVEL ${fresh.level} ALCANÇADO · +${(fresh.level - levelBefore) * 3} PONTOS`, 'gold')
       levelUnlocks(levelBefore, fresh.level).forEach((m) => notify(m, 'gold'))
     }
-    if (boss && boss.status === 'active') {
+        if (boss && boss.status === 'active') {
       const after = await getBoss(user.id)
       setBoss(after)
       if (after && after.id === boss.id && after.status === 'defeated') {
         notify(`${after.name} FOI DERROTADO!`, 'gold')
         await awardXp(after.reward_xp)
       }
+    }
+    if (daily && daily.status === 'active') {
+      const { data: freshDaily } = await supabase
+        .from('daily_monsters')
+        .select('*')
+        .eq('id', daily.id)
+        .maybeSingle()
+      if (freshDaily) {
+        setDaily(freshDaily)
+        if (freshDaily.status === 'defeated' && daily.status !== 'defeated') {
+          notify(`${freshDaily.name} DERROTADO! +50 XP`, 'gold')
+          await awardXp(50)
+        }
+      }
+    
     }
     setSaving(false)
   }
@@ -189,6 +218,18 @@ function SessionView({ workout, onExit, go }) {
           </div>
           <h3 className="h-md">{boss.name}</h3>
           <SegBar value={Number(boss.current_hp)} max={Number(boss.max_hp)} tone="gold" label="HP do chefe" />
+        </Panel>
+      )}
+      {daily && daily.status === 'active' && (
+        <Panel tone="cyan">
+          <div className="row between">
+            <Chip tone="cyan">MONSTRO DO DIA</Chip>
+            <span className="mono tiny dim">
+              {Math.round((Number(daily.current_hp) / Number(daily.max_hp)) * 100)}% HP
+            </span>
+          </div>
+          <h3 className="h-md">{daily.name}</h3>
+          <SegBar value={Number(daily.current_hp)} max={Number(daily.max_hp)} tone="cyan" label="HP do monstro diário" />
         </Panel>
       )}
 

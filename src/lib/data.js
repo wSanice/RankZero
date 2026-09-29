@@ -55,3 +55,77 @@ export async function getMissions(uid) {
   }
   return rows
 }
+
+const MINI_BOSS_INTERVAL = 15
+
+export async function checkAndSpawnMiniBoss(profile) {
+  if (!profile?.total_checkins || profile.total_checkins % MINI_BOSS_INTERVAL !== 0) return null
+
+  const { data: existing, error: exErr } = await supabase
+    .from('boss_raids')
+    .select('id')
+    .eq('user_id', profile.id)
+    .eq('status', 'active')
+    .maybeSingle()
+  if (exErr) throw exErr
+  if (existing) return null
+
+  const milestone = profile.total_checkins
+  const scale = 1 + milestone / MINI_BOSS_INTERVAL
+  const maxHp = Math.round(50000 * scale)
+
+  const { data, error } = await supabase
+    .from('boss_raids')
+    .insert({
+      user_id: profile.id,
+      name: `SENTINELA DO MARCO ${milestone}`,
+      subtitle: `MINI-BOSS · ${milestone} DIAS DE CHECK-IN`,
+      max_hp: maxHp,
+      current_hp: maxHp,
+      reward_xp: Math.round(500 * scale),
+      reward_text: null,
+      status: 'active',
+      deadline: new Date(Date.now() + 3 * 86400000).toISOString(),
+    })
+    .select()
+    .single()
+  if (error) throw error
+  return data
+}
+
+export async function getDailyMonster(uid, level) {
+  const today = localDate()
+  const { data: existing, error } = await supabase
+    .from('daily_monsters')
+    .select('*')
+    .eq('user_id', uid)
+    .eq('monster_date', today)
+    .maybeSingle()
+  if (error) throw error
+  if (existing) return existing
+
+  const maxHp = Math.round(400 * Math.max(level || 1, 1)) // escala com nível
+  const { data, error: insErr } = await supabase
+    .from('daily_monsters')
+    .insert({
+      user_id: uid,
+      monster_date: today,
+      name: `MONSTRO DO DIA · NV.${level || 1}`,
+      max_hp: maxHp,
+      current_hp: maxHp,
+      status: 'active',
+    })
+    .select()
+    .single()
+
+  if (insErr) {
+    // corrida entre abas/refreshes: alguém já criou, só busca de novo
+    if (insErr.code === '23505') {
+      const retry = await supabase.from('daily_monsters').select('*').eq('user_id', uid).eq('monster_date', today).maybeSingle()
+      if (retry.error) throw retry.error
+      return retry.data
+    }
+    throw insErr
+  }
+  return data
+}

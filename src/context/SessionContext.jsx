@@ -1,6 +1,7 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react'
 import { supabase } from '../lib/supabase'
 import { applyXp, levelUnlocks, rankFromLevel } from '../lib/rpg'
+import { checkAndSpawnMiniBoss } from '../lib/data'
 
 const Ctx = createContext(null)
 export const useSession = () => useContext(Ctx)
@@ -36,9 +37,16 @@ export function SessionProvider({ children }) {
         const rank = rankFromLevel(row.level)
         if (rank !== row.rank) {
           row = { ...row, rank }
-          supabase.from('profiles').update({ rank }).eq('id', uid).then(() => {})
+          supabase.from('profiles').update({ rank }).eq('id', uid).then(() => { })
         }
         setProfile(row)
+
+        // Mini-boss de 15 dias: dispara em background, não trava o load do profile
+        checkAndSpawnMiniBoss(row)
+          .then((spawned) => {
+            if (spawned) notify(`⚠ ${spawned.name} APARECEU! (marco de ${row.total_checkins} dias)`, 'red')
+          })
+          .catch((e) => console.error('mini-boss spawn falhou:', e))
       }
       return row
     },

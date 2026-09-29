@@ -1,5 +1,5 @@
 import { useMemo, useRef, useState } from 'react'
-import { Camera, Lock, LogOut, Plus, Save } from 'lucide-react'
+import { Camera, Lock, LogOut, Save } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import { useSession } from '../context/SessionContext'
 import { useQuery, must } from '../lib/useQuery'
@@ -35,11 +35,6 @@ export default function Perfil() {
     const prs = Object.entries(best).sort((a, b) => Number(b[1].weight) - Number(a[1].weight)).slice(0, 5)
     return { sets: rows.length, days: days.size, volume, prs }
   }, [logs.data])
-
-  const addPoint = (key) => {
-    if (p.free_points <= 0) return
-    updateProfile({ [key]: p[key] + 1, free_points: p.free_points - 1 })
-  }
 
   const setClasses = async ({ primary = p.class, second = p.second_class }) => {
     const patch = { class: primary, second_class: second === primary ? null : second }
@@ -114,7 +109,7 @@ export default function Perfil() {
       </Panel>
 
       <Panel>
-        <SysHead right={<Chip tone={p.free_points ? 'cyan' : 'slate'}>{p.free_points} PONTOS LIVRES</Chip>}>[CLASSES E TÍTULO]</SysHead>
+        <SysHead right={<Chip tone="slate">PONTOS AUTOMÁTICOS</Chip>}>[CLASSES E TÍTULO]</SysHead>
 
         <p className="mono tiny dim">CLASSE INICIAL · NÍVEL 1</p>
         <div className="class-row">
@@ -161,12 +156,7 @@ export default function Perfil() {
               <h3 className="h-lg">{a.label}</h3>
               <p className="muted">{a.desc}</p>
             </div>
-            <div className="row gap">
-              <BigStat value={p[a.key]} />
-              <button className="plus" disabled={p.free_points <= 0} onClick={() => addPoint(a.key)} aria-label={`Adicionar ponto em ${a.label}`}>
-                <Plus size={18} />
-              </button>
-            </div>
+            <BigStat value={p[a.key]} />
           </div>
         </Panel>
       ))}

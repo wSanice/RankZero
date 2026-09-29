@@ -59,19 +59,43 @@ export const DEFAULT_BOSS = {
 export const damageOf = (weight, reps) => Number(weight || 0) * Math.max(Number(reps || 1), 1)
 export const xpOf = (damage) => Math.max(Math.round(damage / 40), 5)
 
-// Aplica XP com o mesmo loop de level-up do banco
+// ---------- pontos de atributo: fixos por classe (não são mais livres) ----------
+// Espelha fn_points_for_level() no banco (003_pontos_por_classe.sql).
+// Nível básico (1,2,3...): 3 pontos | nível decimal (10,20,30...): 5 pontos
+export const POINTS_BY_CLASS = {
+  colosso:  { basic: { str: 2, agi: 0, vit: 1 }, decimal: { str: 2, agi: 1, vit: 2 } },
+  ladino:   { basic: { str: 1, agi: 2, vit: 0 }, decimal: { str: 1, agi: 3, vit: 1 } },
+  guardiao: { basic: { str: 1, agi: 0, vit: 2 }, decimal: { str: 2, agi: 1, vit: 2 } },
+}
+
+export const pointsForLevel = (cls, level) => {
+  const table = POINTS_BY_CLASS[cls] || POINTS_BY_CLASS.colosso
+  return level % 10 === 0 ? table.decimal : table.basic
+}
+
+// Aplica XP com o mesmo loop de level-up do banco.
+// Os pontos de atributo agora são creditados automaticamente por classe
+// (não existe mais alocação livre — free_points fica só para compatibilidade
+// com telas antigas, mas não é mais incrementado).
 export function applyXp(profile, gain) {
   let xp = (profile.xp || 0) + gain
   let level = profile.level || 1
-  let free = profile.free_points || 0
+  let str = profile.str || 0
+  let agi = profile.agi || 0
+  let vit = profile.vit || 0
   let leveled = 0
+  const gains = [] // histórico de pontos ganhos por nível, útil pra toast/log
   while (xp >= xpToNext(level)) {
     xp -= xpToNext(level)
     level += 1
-    free += 3
+    const pts = pointsForLevel(profile.class, level)
+    str += pts.str
+    agi += pts.agi
+    vit += pts.vit
+    gains.push({ level, ...pts })
     leveled += 1
   }
-  return { xp, level, free_points: free, leveled }
+  return { xp, level, str, agi, vit, leveled, gains }
 }
 
 export const fmt = (n) => Number(n || 0).toLocaleString('pt-BR', { maximumFractionDigits: 0 })
