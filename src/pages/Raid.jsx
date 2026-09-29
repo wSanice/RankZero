@@ -96,7 +96,9 @@ export default function Raid({ go }) {
           <p className="mono tiny cyan">CLASSIFICAÇÃO: CHEFE DE RAID</p>
           <p className="mono tiny dim">{b.subtitle}</p>
           <div className="row gap">
-            <span className="boss-icon big"><Skull size={34} /></span>
+            <span className={`boss-icon big ${b.name?.startsWith('SENTINELA DO MARCO') ? 'danger' : ''}`}>
+              <Skull size={34} />
+            </span>
             <h2 className="h-xl">{b.name}</h2>
           </div>
           <div className="row between end">
