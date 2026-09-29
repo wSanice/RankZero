@@ -1,5 +1,5 @@
 import { supabase } from './supabase'
-import { DEFAULT_BOSS, DEFAULT_MISSIONS, localDate } from './rpg'
+import { DEFAULT_BOSS, DEFAULT_MISSIONS, INVOKABLE_BOSSES, localDate } from './rpg'
 
 // Boss ativo; se o prazo já passou, marca como expirado
 export async function getBoss(uid) {
