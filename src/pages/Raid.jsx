@@ -1,10 +1,10 @@
-import { useMemo, useState } from 'react'
-import { Skull, Trophy } from 'lucide-react'
+import { useMemo, useState, useEffect } from 'react'
+import { ChevronRight, Skull, Trophy } from 'lucide-react'
 import { useSession } from '../context/SessionContext'
 import { useNow, useQuery, must } from '../lib/useQuery'
 import { supabase } from '../lib/supabase'
-import { getBoss, summonBoss } from '../lib/data'
-import { fmt, startOfToday } from '../lib/rpg'
+import { getBoss, getGlobalBoss, summonInvokableBoss } from '../lib/data'
+import { fmt, startOfToday, INVOKABLE_BOSSES } from '../lib/rpg'
 import { Btn, Chip, ErrorNote, Loading, Panel, SegBar, SysHead } from '../components/ui'
 
 export default function Raid({ go }) {
@@ -12,13 +12,19 @@ export default function Raid({ go }) {
   const now = useNow(60000)
   const [busy, setBusy] = useState(false)
   const boss = useQuery(() => getBoss(user.id), [user.id])
+  const [globalBoss, setGlobalBoss] = useState(null)
+
+  useEffect(() => {
+    getGlobalBoss().then(setGlobalBoss).catch(() => {})
+  }, [])
+
   const today = useQuery(async () => {
     const rows = must(
       await supabase
         .from('combat_log')
-        .select('damage, logged_at, exercise:exercises(name)')
-        .gte('logged_at', startOfToday().toISOString())
-        .order('logged_at', { ascending: false })
+        .select('damage, created_at, exercise:exercises(name)')
+        .gte('created_at', startOfToday().toISOString())
+        .order('created_at', { ascending: false })
     )
     return rows
   }, [user.id])
@@ -34,10 +40,10 @@ export default function Raid({ go }) {
   }, [today.data])
   const todayDamage = byExercise.reduce((s, [, v]) => s + v, 0)
 
-  const summon = async () => {
+  const summon = async (bossKey) => {
     setBusy(true)
     try {
-      await summonBoss(user.id)
+      await summonInvokableBoss(user.id, bossKey)
       notify('PORTAL VERMELHO ABERTO. A RAID COMEÇOU.', 'red')
       await boss.reload()
     } catch (e) {
@@ -52,9 +58,23 @@ export default function Raid({ go }) {
 
   const daysLeft = b?.deadline ? Math.max(0, Math.ceil((new Date(b.deadline) - now) / 86400000)) : null
   const closed = !b || b.status !== 'active'
+  const gbPct = globalBoss ? Number(globalBoss.current_hp) / Number(globalBoss.max_hp) : 0
 
   return (
     <div className="stack">
+      {/* Evento global — somente leitura, nasce automaticamente a cada 30 dias */}
+      {globalBoss && globalBoss.status === 'active' && (
+        <Panel tone="gold" brackets>
+          <div className="row between">
+            <Chip tone="gold">EVENTO GLOBAL · TODOS OS CAÇADORES</Chip>
+            <span className="mono tiny dim">{Math.round(gbPct * 100)}% HP</span>
+          </div>
+          <h2 className="h-lg">{globalBoss.name}</h2>
+          <SegBar value={Number(globalBoss.current_hp)} max={Number(globalBoss.max_hp)} tone="gold" segments={10} label="HP do Igris" />
+          <p className="mono tiny dim">Seu dano de treino também é somado a este evento automaticamente.</p>
+        </Panel>
+      )}
+
       {b && (
         <Panel tone={closed ? 'gold' : 'red'}>
           <div className="row between">
@@ -97,9 +117,21 @@ export default function Raid({ go }) {
       )}
 
       {closed && (
-        <Btn icon={Skull} disabled={busy} onClick={summon}>
-          {busy ? 'Abrindo portal...' : 'Invocar nova raid'}
-        </Btn>
+        <>
+          <SysHead>[ESCOLHA SEU DESAFIO]</SysHead>
+          <div className="stack">
+            {Object.entries(INVOKABLE_BOSSES).map(([key, def]) => (
+              <button key={key} className="panel pick" disabled={busy} onClick={() => summon(key)}>
+                <span className="boss-icon"><Skull size={22} /></span>
+                <span className="grow left">
+                  <b className="h-md">{def.name}</b>
+                  <span className="mono tiny dim">{def.subtitle} · {fmt(def.max_hp)} HP</span>
+                </span>
+                <ChevronRight size={18} />
+              </button>
+            ))}
+          </div>
+        </>
       )}
 
       <Panel>

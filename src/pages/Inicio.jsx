@@ -5,6 +5,8 @@ import { useNow, useQuery } from '../lib/useQuery'
 import { getBoss, getGlobalBoss, getMissions } from '../lib/data'
 import { ATTRS, CLASSES, clock, endOfToday, fmt, xpToNext } from '../lib/rpg'
 import { BigStat, Btn, Check, Chip, ErrorNote, Loading, Panel, SegBar, SysHead } from '../components/ui'
+import { INVOKABLE_BOSSES } from '../lib/rpg'
+import { summonInvokableBoss } from '../lib/data'
 
 export default function Inicio({ go }) {
   const { profile: p, user } = useSession()

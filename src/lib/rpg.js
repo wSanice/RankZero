@@ -55,6 +55,33 @@ export const DEFAULT_BOSS = {
   reward_text: 'Armadura S-Rank + Rank Up',
 }
 
+export const INVOKABLE_BOSSES = {
+  colosso: {
+    name: 'GRENDEL, O TITÃ DE FERRO',
+    subtitle: 'FRACO CONTRA COLOSSO · BÔNUS +20% DANO',
+    max_hp: 80000,
+    reward_xp: 800,
+    weak_vs: 'colosso',
+    bonus_mult: 1.2,
+  },
+  ladino: {
+    name: 'NIGHTSHADE, A LÂMINA SILENCIOSA',
+    subtitle: 'FRACO CONTRA LADINO · BÔNUS +20% DANO',
+    max_hp: 60000,
+    reward_xp: 700,
+    weak_vs: 'ladino',
+    bonus_mult: 1.2,
+  },
+  guardiao: {
+    name: 'BASTION, O MURO VIVO',
+    subtitle: 'FRACO CONTRA GUARDIÃO · BÔNUS +20% DANO',
+    max_hp: 100000,
+    reward_xp: 900,
+    weak_vs: 'guardiao',
+    bonus_mult: 1.2,
+  },
+}
+
 // Mesma fórmula do trigger: dano = peso × reps ; xp = max(round(dano/40), 5)
 export const damageOf = (weight, reps) => Number(weight || 0) * Math.max(Number(reps || 1), 1)
 export const xpOf = (damage) => Math.max(Math.round(damage / 40), 5)

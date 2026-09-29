@@ -7,6 +7,7 @@ import { flatExercises, getWorkouts } from '../lib/workouts'
 import { clock, damageOf, damageOfMinutes, fmt, fmt1, levelUnlocks, localDate, xpOf } from '../lib/rpg'
 import { Btn, Chip, Empty, ErrorNote, Loading, Panel, SegBar, SysHead } from '../components/ui'
 import { getBoss, getDailyMonster, getGlobalBoss, hitGlobalBoss } from '../lib/data'
+import { INVOKABLE_BOSSES } from '../lib/rpg'
 
 const REST_KEY = 'abibas_rest_seconds'
 export const getRestSeconds = () => Number(localStorage.getItem(REST_KEY)) || 90

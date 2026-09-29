@@ -100,6 +100,8 @@ input, select, textarea { font: inherit; font-size: 16px; color: inherit; }
   border: 1px solid var(--line); border-radius: 0;
 }
 .panel.tone-red { --bc: var(--crimson); border-color: rgba(255, 0, 85, 0.35); background: linear-gradient(180deg, rgba(255, 0, 85, 0.08), var(--panel)); }
+.panel.tone-red.brackets { --bc: var(--crimson); }
+.boss-icon.danger { border-color: var(--crimson); color: var(--crimson); box-shadow: 0 0 24px rgba(255, 0, 85, 0.4); }
 .panel.tone-gold { --bc: var(--gold); border-color: rgba(255, 215, 0, 0.35); }
 .panel.tone-cyan { border-color: var(--line-strong); box-shadow: 0 0 24px rgba(0, 229, 255, 0.12), inset 0 0 16px rgba(0, 229, 255, 0.04); }
 .brackets { box-shadow: 0 0 24px rgba(0, 229, 255, 0.1), inset 0 0 16px rgba(0, 229, 255, 0.03); }

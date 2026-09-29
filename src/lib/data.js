@@ -162,3 +162,38 @@ export async function getGlobalBossLeaderboard(bossId) {
   for (const h of data) totals[h.user_id] = (totals[h.user_id] || 0) + Number(h.damage)
   return Object.entries(totals).sort((a, b) => b[1] - a[1])
 }
+
+export async function summonInvokableBoss(uid, bossKey) {
+  const def = INVOKABLE_BOSSES[bossKey]
+  if (!def) throw new Error('Boss inválido')
+
+  // impede invocar se já existe um boss pessoal ativo
+  const { data: existing, error: exErr } = await supabase
+    .from('boss_raids')
+    .select('id')
+    .eq('user_id', uid)
+    .eq('status', 'active')
+    .maybeSingle()
+  if (exErr) throw exErr
+  if (existing) throw new Error('Você já tem uma raid ativa. Derrote ou espere expirar.')
+
+  const deadline = new Date(Date.now() + 7 * 86400000).toISOString() // 7 dias pra derrotar
+
+  const { data, error } = await supabase
+    .from('boss_raids')
+    .insert({
+      user_id: uid,
+      name: def.name,
+      subtitle: def.subtitle,
+      max_hp: def.max_hp,
+      current_hp: def.max_hp,
+      reward_xp: def.reward_xp,
+      reward_text: null,
+      status: 'active',
+      deadline,
+    })
+    .select()
+    .single()
+  if (error) throw error
+  return data
+}
