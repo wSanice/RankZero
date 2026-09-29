@@ -71,6 +71,48 @@ function SessionView({ workout, onExit, go }) {
   const sets = done[ex?.id] || []
   const isCardio = ex?.kind === 'cardio'
 
+  const timerKey = ex ? `cardio_timer_${ex.id}` : null
+  const [timer, setTimer] = useState(null) // { endAt, running, remainingMs }
+  const autoCompletedRef = useRef(false)
+
+  // carrega/recarrega o timer salvo sempre que troca de exercício
+  useEffect(() => {
+    autoCompletedRef.current = false
+    if (!timerKey) { setTimer(null); return }
+    const raw = localStorage.getItem(timerKey)
+    setTimer(raw ? JSON.parse(raw) : null)
+  }, [timerKey])
+
+  const saveTimer = (t) => {
+    setTimer(t)
+    if (!timerKey) return
+    if (t) localStorage.setItem(timerKey, JSON.stringify(t))
+    else localStorage.removeItem(timerKey)
+  }
+
+  const startTimer = () => {
+    saveTimer({ endAt: Date.now() + targetMinutes * 60000, running: true, remainingMs: null })
+  }
+  const pauseTimer = () => {
+    if (!timer?.running) return
+    saveTimer({ ...timer, running: false, remainingMs: Math.max(0, timer.endAt - Date.now()) })
+  }
+  const resumeTimer = () => {
+    if (timer?.running) return
+    saveTimer({ endAt: Date.now() + (timer.remainingMs || 0), running: true, remainingMs: null })
+  }
+  const cancelTimer = () => saveTimer(null)
+
+  const timerRemainingMs = timer ? (timer.running ? Math.max(0, timer.endAt - now) : timer.remainingMs) : 0
+  const timerDone = timer && timer.running && timerRemainingMs <= 0
+
+  useEffect(() => {
+    if (timerDone && !autoCompletedRef.current && !saving) {
+      autoCompletedRef.current = true
+      cancelTimer()
+      complete()
+    }
+  }, [timerDone, saving])
   // boss ativo para mostrar HP e detectar vitória
   useEffect(() => {
     getBoss(user.id).then(setBoss).catch(() => {})
@@ -123,6 +165,7 @@ function SessionView({ workout, onExit, go }) {
   const setsComplete = !isCardio && sets.length >= (ex?.target_sets || 3)
 
   const complete = async () => {
+    if (isCardio) cancelTimer()
     let row
     let dmg
     let entry
@@ -290,19 +333,42 @@ function SessionView({ workout, onExit, go }) {
           })}
         </div>
 
-        <p className="mono tiny gold"><Zap size={12} style={{ verticalAlign: '-2px' }} /> Esta {isCardio ? 'sessão' : 'série'} vale +{xpOf(previewDmg)} XP · {fmt(previewDmg)} dano</p>
+                <p className="mono tiny gold"><Zap size={12} style={{ verticalAlign: '-2px' }} /> Esta {isCardio ? 'sessão' : 'série'} vale +{xpOf(previewDmg)} XP · {fmt(previewDmg)} dano</p>
 
-        <Btn icon={Swords} className="cta" disabled={saving || restActive || setsComplete} onClick={complete}>
-          {saving
-            ? 'Gravando...'
-            : restActive
-              ? 'Aguarde o intervalo...'
-              : setsComplete
-                ? 'Séries concluídas'
-                : isCardio
-                  ? 'Concluir cardio & acumular atributos'
-                  : 'Concluir série & acumular atributos'}
-        </Btn>
+        {isCardio ? (
+          <>
+            {timer && (
+              <div className="info-row timer">
+                <Timer size={20} className="cyan" />
+                <div className="grow">
+                  <p className="mono tiny dim">{timer.running ? 'CRONÔMETRO ATIVO' : 'PAUSADO'}</p>
+                  <p className="timer-num">{clock(timerRemainingMs)}</p>
+                </div>
+              </div>
+            )}
+            {!timer && (
+              <Btn icon={Swords} className="cta" disabled={saving || restActive} onClick={startTimer}>
+                Começar cardio ({targetMinutes} min)
+              </Btn>
+            )}
+            {timer && timer.running && (
+              <div className="row gap">
+                <Btn variant="ghost" onClick={pauseTimer}>Pausar</Btn>
+                <Btn variant="danger" onClick={cancelTimer}>Cancelar</Btn>
+              </div>
+            )}
+            {timer && !timer.running && (
+              <div className="row gap">
+                <Btn onClick={resumeTimer}>Retomar</Btn>
+                <Btn variant="danger" onClick={cancelTimer}>Cancelar</Btn>
+              </div>
+            )}
+          </>
+        ) : (
+          <Btn icon={Swords} className="cta" disabled={saving || restActive || setsComplete} onClick={complete}>
+            {saving ? 'Gravando...' : restActive ? 'Aguarde o intervalo...' : setsComplete ? 'Séries concluídas' : 'Concluir série & acumular atributos'}
+          </Btn>
+        )}
       </Panel>
 
       <div className="row gap">
