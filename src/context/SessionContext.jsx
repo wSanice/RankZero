@@ -2,6 +2,7 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useRef, use
 import { supabase } from '../lib/supabase'
 import { applyXp, levelUnlocks, rankFromLevel } from '../lib/rpg'
 import { checkAndSpawnMiniBoss } from '../lib/data'
+import { heartbeat } from '../lib/friends'
 
 const Ctx = createContext(null)
 export const useSession = () => useContext(Ctx)
