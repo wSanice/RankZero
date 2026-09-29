@@ -91,8 +91,9 @@ export function ErrorNote({ error }) {
 
 export function BigStat({ value, unit, small }) {
   return (
-    <span className={`boss-icon ${b.name?.startsWith('SENTINELA DO MARCO') ? 'danger' : ''}`}>
-    <Skull size={26} />
-  </span>
+    <span className={`bigstat ${small ? 'small' : ''}`}>
+      <b>{value}</b>
+      {unit && <em>{unit}</em>}
+    </span>
   )
 }
