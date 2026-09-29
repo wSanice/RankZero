@@ -258,7 +258,7 @@ function Picker({ onClose, onAdd }) {
 
         {!entry ? (
           <>
-            <label className="field-box">
+            <label className="field-box search-sticky">
               <Search size={16} />
               <input autoFocus value={term} onChange={(e) => setTerm(e.target.value)} placeholder="Buscar máquina ou exercício" />
             </label>
