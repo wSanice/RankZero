@@ -92,6 +92,12 @@ export function SessionProvider({ children }) {
     },
     [notify]
   )
+  useEffect(() => {
+    if (!session?.user) return
+    heartbeat(session.user.id)
+    const id = setInterval(() => heartbeat(session.user.id), 60000)
+    return () => clearInterval(id)
+  }, [session?.user?.id])
 
   // Concede XP fora do trigger (missões, recompensa de raid) com a mesma curva do banco
   const awardXp = useCallback(

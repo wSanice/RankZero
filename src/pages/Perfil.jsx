@@ -1,17 +1,52 @@
-import { useMemo, useRef, useState } from 'react'
-import { Camera, Lock, LogOut, Save } from 'lucide-react'
+import { useMemo, useRef, useState, useEffect } from 'react'
+import { Camera, Lock, LogOut, Save, Search } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import { useSession } from '../context/SessionContext'
 import { useQuery, must } from '../lib/useQuery'
 import { ATTRS, CLASSES, SECOND_CLASS_LEVEL, TITLE_LEVEL, fmt, fmt1, localDate, titleFor, xpToNext } from '../lib/rpg'
 import { BigStat, Btn, Chip, ErrorNote, Loading, Panel, RankBadge, SegBar, SysHead } from '../components/ui'
+import { searchProfiles, sendFriendRequest, getFriends, acceptFriendRequest, isOnline } from '../lib/friends'
 
-export default function Perfil() {
+export default function Perfil({ go }) {
   const { profile: p, user, updateProfile, notify, signOut } = useSession()
   const [hunter, setHunter] = useState(p.hunter_name || '')
   const [uploading, setUploading] = useState(false)
   const fileRef = useRef(null)
   const need = xpToNext(p.level)
+  const [term, setTerm] = useState('')
+  const [results, setResults] = useState([])
+  const [friends, setFriends] = useState([])
+
+  useEffect(() => {
+    getFriends(user.id).then(setFriends).catch(() => {})
+  }, [user.id])
+
+  const search = async () => {
+    if (!term.includes('#')) return notify('Busque como nome#0000', 'red')
+    try {
+      const r = await searchProfiles(term)
+      setResults(r.filter((x) => x.id !== user.id))
+    } catch (e) {
+      notify(`Busca falhou: ${e.message}`, 'red')
+    }
+  }
+
+  const addFriend = async (id) => {
+    try {
+      await sendFriendRequest(user.id, id)
+      notify('PEDIDO DE AMIZADE ENVIADO')
+      setResults([])
+      setTerm('')
+    } catch (e) {
+      notify(`Não foi possível enviar: ${e.message}`, 'red')
+    }
+  }
+
+  const accept = async (friendshipId) => {
+    await acceptFriendRequest(friendshipId)
+    notify('AMIZADE CONFIRMADA')
+    getFriends(user.id).then(setFriends)
+  }
 
   const logs = useQuery(async () =>
     must(
@@ -106,6 +141,40 @@ export default function Perfil() {
           <span className="mono tiny cyan">{fmt(p.xp)} / {fmt(need)} EXP</span>
         </div>
         <SegBar value={p.xp} max={need} segments={20} label="Experiência" />
+      </Panel>
+
+      <Panel brackets>
+        <SysHead>[BUSCAR CAÇADOR]</SysHead>
+        <div className="field-box">
+          <input value={term} onChange={(e) => setTerm(e.target.value)} placeholder="nome#0000" onKeyDown={(e) => e.key === 'Enter' && search()} />
+          <button className="icon-btn plain" onClick={search} aria-label="Buscar"><Search size={16} /></button>
+        </div>
+        {results.map((r) => (
+          <div key={r.id} className="row between">
+            <span>{r.hunter_name || r.name}#{r.tag} · Nv.{r.level}</span>
+            <Btn variant="ghost" onClick={() => addFriend(r.id)}>Adicionar</Btn>
+          </div>
+        ))}
+      </Panel>
+
+      <Panel>
+        <SysHead right={<Chip tone="slate">{friends.filter((f) => f.status === 'accepted').length}</Chip>}>[AMIGOS]</SysHead>
+        {!friends.length && <p className="muted">Nenhum amigo ainda. Busque pelo nome#tag acima.</p>}
+        {friends.map((f) => (
+          <div key={f.friendshipId} className="row between">
+            <span className="row gap">
+              <span className={`dot ${isOnline(f.profile.last_seen) ? '' : 'off'}`} />
+              {f.profile.hunter_name || f.profile.name}#{f.profile.tag}
+            </span>
+            {f.incoming ? (
+              <Btn variant="ghost" onClick={() => accept(f.friendshipId)}>Aceitar</Btn>
+            ) : f.status === 'pending' ? (
+              <Chip tone="slate">PENDENTE</Chip>
+            ) : (
+              <Btn variant="ghost" onClick={() => go('raid', { invitePartnerId: f.profile.id })}>Convidar p/ raid</Btn>
+            )}
+          </div>
+        ))}
       </Panel>
 
       <Panel>

@@ -198,6 +198,7 @@ input.num:focus { outline: 0; border-color: var(--cyan); box-shadow: 0 0 10px rg
 .login { padding: calc(16px + env(safe-area-inset-top, 0px)) 16px 24px; gap: 16px; justify-content: center; }
 .login-status { font-size: 10px; color: var(--cyan); display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
 .dot { width: 6px; height: 6px; background: var(--cyan); border-radius: 50%; box-shadow: 0 0 8px var(--cyan); }
+.dot.off { background: var(--dim); box-shadow: none; }
 .login-card { padding: 24px 20px; gap: 16px; }
 .login-emblem { align-self: center; width: 60px; height: 60px; display: grid; place-items: center; border: 1px solid var(--cyan); color: var(--cyan); box-shadow: 0 0 24px rgba(0, 229, 255, 0.35); }
 .login-switch { gap: 4px; align-items: center; }

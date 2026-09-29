@@ -163,21 +163,12 @@ export async function getGlobalBossLeaderboard(bossId) {
   return Object.entries(totals).sort((a, b) => b[1] - a[1])
 }
 
-export async function summonInvokableBoss(uid, bossKey) {
+export async function summonInvokableBoss(uid, bossKey, partnerId = null) {
   const def = INVOKABLE_BOSSES[bossKey]
   if (!def) throw new Error('Boss inválido')
 
-  // impede invocar se já existe um boss pessoal ativo
-  const { data: existing, error: exErr } = await supabase
-    .from('boss_raids')
-    .select('id')
-    .eq('user_id', uid)
-    .eq('status', 'active')
-    .maybeSingle()
-  if (exErr) throw exErr
-  if (existing) throw new Error('Você já tem uma raid ativa. Derrote ou espere expirar.')
-
-  const deadline = new Date(Date.now() + 7 * 86400000).toISOString() // 7 dias pra derrotar
+  const maxHp = partnerId ? Math.round(def.max_hp * 1.7) : def.max_hp
+  const deadline = new Date(Date.now() + 7 * 86400000).toISOString()
 
   const { data, error } = await supabase
     .from('boss_raids')
@@ -185,15 +176,29 @@ export async function summonInvokableBoss(uid, bossKey) {
       user_id: uid,
       name: def.name,
       subtitle: def.subtitle,
-      max_hp: def.max_hp,
-      current_hp: def.max_hp,
+      max_hp: maxHp,
+      current_hp: maxHp,
       reward_xp: def.reward_xp,
-      reward_text: null,
       status: 'active',
       deadline,
     })
     .select()
     .single()
+  if (error) throw error
+
+  const members = [{ raid_id: data.id, user_id: uid }]
+  if (partnerId) members.push({ raid_id: data.id, user_id: partnerId })
+  await supabase.from('raid_members').insert(members)
+
+  return data
+}
+
+export async function getRaidPartners(raidId, myId) {
+  const { data, error } = await supabase
+    .from('raid_members')
+    .select('user_id, profile:profiles(hunter_name, name, tag, avatar_url, last_seen)')
+    .eq('raid_id', raidId)
+    .neq('user_id', myId)
   if (error) throw error
   return data
 }
