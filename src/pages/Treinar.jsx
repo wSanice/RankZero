@@ -6,7 +6,7 @@ import { useNow, useQuery, must } from '../lib/useQuery'
 import { flatExercises, getWorkouts } from '../lib/workouts'
 import { clock, damageOf, damageOfMinutes, fmt, fmt1, levelUnlocks, localDate, xpOf } from '../lib/rpg'
 import { Btn, Chip, Empty, ErrorNote, Loading, Panel, SegBar, SysHead } from '../components/ui'
-import { getBoss, getDailyMonster } from '../lib/data'
+import { getBoss, getDailyMonster, getGlobalBoss, hitGlobalBoss } from '../lib/data'
 
 const REST_KEY = 'abibas_rest_seconds'
 export const getRestSeconds = () => Number(localStorage.getItem(REST_KEY)) || 90
@@ -132,6 +132,12 @@ function SessionView({ workout, onExit, go }) {
     getDailyMonster(user.id, profile.level).then(setDaily).catch(() => {})
   }, [user.id, isMiniBossDay, boss])
 
+  const [globalBoss, setGlobalBoss] = useState(null)
+
+  useEffect(() => {
+    getGlobalBoss().then(setGlobalBoss).catch(() => {})
+  }, [])
+
   // histórico: último dia anterior em que este exercício foi feito (apenas exibição)
   const hist = useQuery(async () => {
     if (!ex) return []
@@ -200,6 +206,14 @@ function SessionView({ workout, onExit, go }) {
       if (after && after.id === boss.id && after.status === 'defeated') {
         notify(`${after.name} FOI DERROTADO!`, 'gold')
         await awardXp(after.reward_xp)
+      }
+    }
+    if (globalBoss && globalBoss.status === 'active') {
+      await hitGlobalBoss(user.id, dmg)
+      const freshGlobal = await getGlobalBoss()
+      setGlobalBoss(freshGlobal)
+      if (freshGlobal === null || freshGlobal.status === 'defeated') {
+        notify(`${globalBoss.name} FOI DERROTADO PELA COMUNIDADE!`, 'gold')
       }
     }
     if (daily && daily.status === 'active') {

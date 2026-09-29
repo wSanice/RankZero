@@ -129,3 +129,36 @@ export async function getDailyMonster(uid, level) {
   }
   return data
 }
+
+export async function getGlobalBoss() {
+  const { data, error } = await supabase
+    .from('global_bosses')
+    .select('*')
+    .eq('status', 'active')
+    .order('started_at', { ascending: false })
+    .limit(1)
+    .maybeSingle()
+  if (error) throw error
+  return data
+}
+
+// Chame isso junto com o registro normal de dano no boss pessoal
+export async function hitGlobalBoss(uid, damage) {
+  const { error } = await supabase.rpc('apply_global_boss_damage', {
+    p_user_id: uid,
+    p_damage: damage,
+  })
+  if (error) throw error
+}
+
+// Ranking de quem mais bateu no boss global
+export async function getGlobalBossLeaderboard(bossId) {
+  const { data, error } = await supabase
+    .from('global_boss_hits')
+    .select('user_id, damage')
+    .eq('boss_id', bossId)
+  if (error) throw error
+  const totals = {}
+  for (const h of data) totals[h.user_id] = (totals[h.user_id] || 0) + Number(h.damage)
+  return Object.entries(totals).sort((a, b) => b[1] - a[1])
+}

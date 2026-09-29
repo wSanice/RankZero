@@ -1,7 +1,8 @@
+import { useEffect, useState } from 'react'
 import { ChevronRight, Skull, Swords, Timer } from 'lucide-react'
 import { useSession } from '../context/SessionContext'
 import { useNow, useQuery } from '../lib/useQuery'
-import { getBoss, getMissions } from '../lib/data'
+import { getBoss, getGlobalBoss, getMissions } from '../lib/data'
 import { ATTRS, CLASSES, clock, endOfToday, fmt, xpToNext } from '../lib/rpg'
 import { BigStat, Btn, Check, Chip, ErrorNote, Loading, Panel, SegBar, SysHead } from '../components/ui'
 
@@ -10,6 +11,16 @@ export default function Inicio({ go }) {
   const now = useNow()
   const missions = useQuery(() => getMissions(user.id), [user.id])
   const boss = useQuery(() => getBoss(user.id), [user.id])
+  const globalBoss = useQuery(() => getGlobalBoss(), [])
+  const gb = globalBoss.data
+
+  const welcomeKey = `abibas_welcomed_${user.id}`
+  const [showWelcome, setShowWelcome] = useState(() => !localStorage.getItem(welcomeKey))
+
+  const dismissWelcome = () => {
+    localStorage.setItem(welcomeKey, '1')
+    setShowWelcome(false)
+  }
 
   const need = xpToNext(p.level)
   const cls = CLASSES[p.class] || CLASSES.colosso
@@ -21,13 +32,16 @@ export default function Inicio({ go }) {
 
   return (
     <div className="stack">
-      <Panel brackets>
-        <SysHead right="AUTORIZADO">[MENSAGEM DO SISTEMA]</SysHead>
-        <h2 className="h-lg glow">Bem-vindo ao sistema de ascensão</h2>
-        <p className="muted">
-          Caçador {p.hunter_name || p.name}, cada série registrada vira dano e experiência. Cumpra as missões diárias para evitar a Zona de Punição.
-        </p>
-      </Panel>
+      {showWelcome && (
+        <Panel brackets>
+          <SysHead right="AUTORIZADO">[MENSAGEM DO SISTEMA]</SysHead>
+          <h2 className="h-lg glow">Bem-vindo ao sistema de ascensão</h2>
+          <p className="muted">
+            Caçador {p.hunter_name || p.name}, cada série registrada vira dano e experiência. Cumpra as missões diárias para evitar a Zona de Punição.
+          </p>
+          <button className="link mono tiny" onClick={dismissWelcome}>FECHAR</button>
+        </Panel>
+      )}
 
       <Panel>
         <SysHead right={<Chip tone="violet">CLASSE ATIVA</Chip>}>[NÍVEL E EXPERIÊNCIA]</SysHead>
@@ -92,6 +106,19 @@ export default function Inicio({ go }) {
           </>
         )}
       </Panel>
+
+      {gb && gb.status === 'active' && (
+        <Panel tone="gold">
+          <div className="row between">
+            <Chip tone="gold">EVENTO GLOBAL</Chip>
+            <span className="mono tiny dim">
+              {Math.round((Number(gb.current_hp) / Number(gb.max_hp)) * 100)}% HP
+            </span>
+          </div>
+          <h3 className="h-md">{gb.name}</h3>
+          <SegBar value={Number(gb.current_hp)} max={Number(gb.max_hp)} tone="gold" label="HP do Igris" />
+        </Panel>
+      )}
 
       <Panel tone={b && b.status === 'active' ? 'red' : undefined} brackets>
         <SysHead right={b ? <Chip tone={b.status === 'defeated' ? 'gold' : 'red'}>{b.status === 'active' ? 'ATIVO' : b.status === 'defeated' ? 'DERROTADO' : 'EXPIRADO'}</Chip> : null}>
