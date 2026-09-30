@@ -71,6 +71,7 @@ function SessionView({ workout, onExit, go }) {
   const ex = exercises[idx]
   const sets = done[ex?.id] || []
   const isCardio = ex?.kind === 'cardio'
+  const isIsometria = ex?.kind === 'isometria'
 
   const timerKey = ex ? `cardio_timer_${ex.id}` : null
   const [timer, setTimer] = useState(null) // { endAt, running, remainingMs }
@@ -116,7 +117,7 @@ function SessionView({ workout, onExit, go }) {
   }, [timerDone, saving])
   // boss ativo para mostrar HP e detectar vitória
   useEffect(() => {
-    getBoss(user.id).then(setBoss).catch(() => {})
+    getBoss(user.id).then(setBoss).catch(() => { })
   }, [user.id])
 
   const [daily, setDaily] = useState(null)
@@ -130,13 +131,13 @@ function SessionView({ workout, onExit, go }) {
       setDaily(null)
       return
     }
-    getDailyMonster(user.id, profile.level).then(setDaily).catch(() => {})
+    getDailyMonster(user.id, profile.level).then(setDaily).catch(() => { })
   }, [user.id, isMiniBossDay, boss])
 
   const [globalBoss, setGlobalBoss] = useState(null)
 
   useEffect(() => {
-    getGlobalBoss().then(setGlobalBoss).catch(() => {})
+    getGlobalBoss().then(setGlobalBoss).catch(() => { })
   }, [])
 
   // histórico: último dia anterior em que este exercício foi feito (apenas exibição)
@@ -177,9 +178,14 @@ function SessionView({ workout, onExit, go }) {
     let dmg
     let entry
     if (isCardio) {
+
       row = { exercise_id: ex.id, weight: 0, reps: 0, duration_min: targetMinutes }
       dmg = damageOfMinutes(targetMinutes)
       entry = { minutes: targetMinutes, dmg }
+    } else if (isIsometria) {
+      row = { exercise_id: ex.id, weight: 0, reps: targetReps, duration_min: targetMinutes }
+      dmg = damageOfMinutes(targetMinutes) // ou uma fórmula própria
+      entry = { minutes: targetMinutes, reps: targetReps, dmg }
     } else {
       row = { exercise_id: ex.id, weight: targetWeight, reps: targetReps }
       dmg = damageOf(targetWeight, targetReps)
@@ -201,7 +207,7 @@ function SessionView({ workout, onExit, go }) {
       notify(`NÍVEL ${fresh.level} ALCANÇADO · +${(fresh.level - levelBefore) * 3} PONTOS`, 'gold')
       levelUnlocks(levelBefore, fresh.level).forEach((m) => notify(m, 'gold'))
     }
-        if (boss && boss.status === 'active') {
+    if (boss && boss.status === 'active') {
       const after = await getBoss(user.id)
       setBoss(after)
       if (after && after.id === boss.id && after.status === 'defeated') {
@@ -230,7 +236,7 @@ function SessionView({ workout, onExit, go }) {
           await awardXp(50)
         }
       }
-    
+
     }
     setSaving(false)
   }
@@ -348,7 +354,7 @@ function SessionView({ workout, onExit, go }) {
           })}
         </div>
 
-                <p className="mono tiny gold"><Zap size={12} style={{ verticalAlign: '-2px' }} /> Esta {isCardio ? 'sessão' : 'série'} vale +{xpOf(previewDmg)} XP · {fmt(previewDmg)} dano</p>
+        <p className="mono tiny gold"><Zap size={12} style={{ verticalAlign: '-2px' }} /> Esta {isCardio ? 'sessão' : 'série'} vale +{xpOf(previewDmg)} XP · {fmt(previewDmg)} dano</p>
 
         {isCardio ? (
           <>

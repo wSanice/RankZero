@@ -9,8 +9,9 @@ import { fmt1, nextLetter } from '../lib/rpg'
 import { Btn, Chip, Empty, ErrorNote, Loading, Panel, SysHead } from '../components/ui'
 
 const CARDIO = ['ESTEIRA', 'BICICLETA', 'ELÍPTICO', 'REMO ERGÔMETRO', 'ESCADA (STAIRMASTER)']
+const ISOMETRIA = ['PRANCHA']
 const LIVRE = ['HALTERES', 'BARRA / ANILHAS']
-const kindOf = (name) => (CARDIO.includes(name) ? 'cardio' : LIVRE.includes(name) ? 'livre' : 'maquina')
+const kindOf = (name) => (CARDIO.includes(name) ? 'cardio' : ISOMETRIA.includes(name) ? 'isometria' : LIVRE.includes(name) ? 'livre' : 'maquina')
 const REST_KEY = 'abibas_rest_seconds'
 
 export default function Ficha({ go }) {
@@ -186,6 +187,7 @@ function Editor({ workout, reload, onBack, onDeleted, go }) {
             {m.exercises.map((e) => {
               const l = last.data?.[e.id]
               const cardio = m.kind === 'cardio'
+              const isometria = m.kind === 'isometria'
               return (
                 <li key={e.id}>
                   <div className="row between">
@@ -195,6 +197,11 @@ function Editor({ workout, reload, onBack, onDeleted, go }) {
                   <div className="targets">
                     {cardio ? (
                       <Target label="TEMPO" unit="MIN" min={1} value={e.target_minutes} onSave={(v) => saveTarget(e.id, { target_minutes: v })} />
+                    ) : isometria ? (
+                      <>
+                        <Target label="TEMPO" unit="SEG" min={5} value={e.target_minutes} onSave={(v) => saveTarget(e.id, { target_minutes: v })} />
+                        <Target label="REPS" min={1} value={e.target_reps} onSave={(v) => saveTarget(e.id, { target_reps: v })} />
+                      </>
                     ) : (
                       <>
                         <Target label="SÉRIES" min={1} value={e.target_sets} onSave={(v) => saveTarget(e.id, { target_sets: v })} />
