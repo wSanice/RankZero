@@ -57,4 +57,19 @@ export const CATALOGO = [
   { name: 'HALTERES', icon: 'halter', exercises: ['Rosca direta', 'Rosca concentrada', 'Rosca alternada', 'Rosca martelo', 'Rosca inversa com halteres', 'Rosca spider', 'Rosca 21', 'Rosca em pé unilateral', 'Rosca inclinada no banco (rosca inclinado)', 'Elevação lateral', 'Elevação frontal', 'Remada alta', 'Agachamento goblet', 'Tríceps francês', 'Stiff com halteres', 'Encolhimento de trapézio'] },
   { name: 'BARRA / ANILHAS', icon: 'barra', exercises: ['Agachamento livre', 'Levantamento terra', 'Supino com barra', 'Encolhimento com barra'] },
   { name: 'PRANCHA', icon: 'abdome', exercises: ['Prancha frontal (isometria)', 'Prancha lateral (direita)', 'Prancha lateral (esquerda)', 'Prancha com elevação de perna', 'Prancha com elevação de braço', 'Prancha com toque no ombro', 'Prancha dinâmica (prancha para flexão)', 'Prancha com rotação (mountain climber lateral)', 'Prancha reversa (prancha de costas)', 'Prancha com apoio nos antebraços sobre bola suíça', 'Prancha com avanço (plank walk-out)'] },
+  { name: 'HIP HINGE (POSTERIOR DE COXA)', icon: 'barra', exercises: [
+  'Bom dia (good morning)',
+  'Levantamento terra (deadlift)',
+  'Levantamento terra romeno (RDL)',
+  'Levantamento terra sumô',
+  'Stiff com barra',
+  'Stiff com halteres',
+  'Elevação de quadril (hip thrust)',
+  'Elevação de quadril unilateral',
+  'Ponte de glúteo (glute bridge)',
+  'Cadeira flexora (mesa flexora)',
+  'Mesa romana (hiperextensão lombar)',
+  'Kettlebell swing',
+  'Good morning na máquina smith'
+] },
 ]
