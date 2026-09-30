@@ -1,5 +1,5 @@
 import { useMemo, useRef, useState, useEffect } from 'react'
-import { Camera, Lock, LogOut, Save, Search } from 'lucide-react'
+import { Camera, Copy, Lock, LogOut, Save, Search } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import { useSession } from '../context/SessionContext'
 import { useQuery, must } from '../lib/useQuery'
@@ -18,7 +18,7 @@ export default function Perfil({ go }) {
   const [friends, setFriends] = useState([])
 
   useEffect(() => {
-    getFriends(user.id).then(setFriends).catch(() => {})
+    getFriends(user.id).then(setFriends).catch(() => { })
   }, [user.id])
 
   const search = async () => {
@@ -123,6 +123,19 @@ export default function Perfil({ go }) {
               <Chip tone="slate">RANK {p.rank}</Chip>
             </div>
             <h2 className="h-xl">{p.hunter_name || p.name}</h2>
+            <p className="mono tiny cyan row gap">
+              CÓDIGO: {p.hunter_name || p.name}#{p.tag}
+              <button
+                className="icon-btn plain"
+                onClick={() => {
+                  navigator.clipboard.writeText(`${p.hunter_name || p.name}#${p.tag}`)
+                  notify('CÓDIGO COPIADO')
+                }}
+                aria-label="Copiar código"
+              >
+                <Copy size={14} />
+              </button>
+            </p>
             <p className="mono tiny dim">{user.email}</p>
           </div>
           <RankBadge rank={p.rank} size="lg" />
