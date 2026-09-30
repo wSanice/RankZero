@@ -12,7 +12,9 @@ export const CATALOGO = [
   { name: 'MESA ROMANA', icon: 'romana', exercises: ['Hiperextensão lombar'] },
 
   // ===================== 2. INFERIORES =====================
-  { name: 'LEG PRESS 45°', icon: 'perna', exercises: ['Leg press 45°', 'Panturrilha no leg press'] },
+  { name: 'LEG PRESS HORIZONTAL', icon: 'perna', exercises: ['Leg press horizontal (180°)', 'Leg press horizontal - pés baixos (quadríceps)', 'Leg press horizontal - pés altos (glúteos/posterior)', 'Leg press horizontal - pés afastados (adutores)', 'Panturrilha no leg press horizontal'] },
+  { name: 'LEG PRESS VERTICAL', icon: 'perna', exercises: ['Leg press vertical (90°)', 'Leg press vertical - pés baixos (quadríceps)', 'Leg press vertical - pés altos (glúteos/posterior)', 'Leg press vertical - pés afastados (adutores)', 'Panturrilha no leg press vertical'] },
+  { name: 'LEG PRESS 45°', icon: 'perna', exercises: ['Leg press 45° (inclinado)', 'Leg press 45° - pés baixos (quadríceps)', 'Leg press 45° - pés altos (glúteos/posterior)', 'Leg press 45° - pés afastados (adutores)', 'Panturrilha no leg press 45°'] },
   { name: 'CADEIRA EXTENSORA', icon: 'perna', exercises: ['Extensão de joelho'] },
   { name: 'CADEIRA FLEXORA', icon: 'perna', exercises: ['Flexão de joelho'] },
   { name: 'MESA FLEXORA', icon: 'perna', exercises: ['Flexão de joelho deitado'] },
