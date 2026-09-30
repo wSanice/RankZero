@@ -50,10 +50,10 @@ export const CATALOGO = [
   { name: 'ANTEBRAÇO', icon: 'barra', exercises: ['Rosca inversa'] },
 
   // ===================== 8. TRÍCEPS =====================
-  { name: 'CROSS OVER', icon: 'cross', exercises: ['Tríceps na polia', 'Tríceps na polia corda','Crucifixo na polia', 'Face pull', 'Rosca na polia', 'Tríceps extensão de cotovelo', 'Tríceps invertido na polia', 'Tríceps diagonal na polia'] },
+  { name: 'CROSS OVER', icon: 'cross', exercises: ['Tríceps na polia', 'Tríceps na polia corda','Crucifixo na polia', 'Face pull', 'Rosca na polia', 'Tríceps extensão de cotovelo', 'Tríceps invertido na polia', 'Tríceps diagonal na polia', 'Rosca direta na polia', 'Rosca unilateral na polia', 'Rosca martelo na polia (corda)', 'Rosca inversa na polia (pegada pronada)', 'Rosca 21 na polia', 'Rosca scott na polia'] },
   { name: 'MESA PARA TRÍCEPS TESTA', icon: 'testa', exercises: ['Tríceps testa com barra'] },
 
   // ===================== LIVRES (halteres / barra) =====================
-  { name: 'HALTERES', icon: 'halter', exercises: ['Rosca direta', 'Rosca concentrada', 'Rosca alternada', 'Rosca martelo', 'Elevação lateral', 'Elevação frontal', 'Remada alta', 'Agachamento goblet', 'Tríceps francês', 'Stiff com halteres', 'Encolhimento de trapézio'] },
+  { name: 'HALTERES', icon: 'halter', exercises: ['Rosca direta', 'Rosca concentrada', 'Rosca alternada', 'Rosca martelo', 'Rosca inversa com halteres', 'Rosca spider', 'Rosca 21', 'Rosca em pé unilateral', 'Rosca inclinada no banco (rosca inclinado)', 'Elevação lateral', 'Elevação frontal', 'Remada alta', 'Agachamento goblet', 'Tríceps francês', 'Stiff com halteres', 'Encolhimento de trapézio'] },
   { name: 'BARRA / ANILHAS', icon: 'barra', exercises: ['Agachamento livre', 'Levantamento terra', 'Supino com barra', 'Encolhimento com barra'] },
 ]
