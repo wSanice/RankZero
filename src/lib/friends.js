@@ -41,6 +41,35 @@ export async function getFriends(uid) {
   }))
 }
 
+const normalize = (s = '') => s.toLowerCase().replace(/\s+/g, '')
+
+export async function searchProfiles(query) {
+  const q = query.trim()
+  if (!q) return []
+  const [namePart, tagPart] = q.split('#')
+  const name = namePart.trim()
+  const normName = normalize(name)
+
+  // busca ampla: usa só os primeiros caracteres pra não perder resultados
+  // por causa de espaço em lugar diferente
+  const loosePart = name.slice(0, 3) || name
+  let req = supabase.from('profiles').select('id, hunter_name, name, tag, avatar_url, level, last_seen')
+  req = req.or(`hunter_name.ilike.%${loosePart}%,name.ilike.%${loosePart}%`)
+  if (tagPart) req = req.eq('tag', tagPart)
+
+  const { data, error } = await req.limit(30)
+  if (error) throw error
+
+  // filtro fino no JS, ignorando espaços e maiúsculas/minúsculas
+  return data
+    .filter((p) => {
+      const h = normalize(p.hunter_name)
+      const n = normalize(p.name)
+      return h.includes(normName) || n.includes(normName)
+    })
+    .slice(0, 10)
+}
+
 export const isOnline = (last_seen) => last_seen && Date.now() - new Date(last_seen).getTime() < 2 * 60 * 1000
 
 // heartbeat: chame a cada ~60s enquanto o app está aberto (ex. no SessionContext)
