@@ -1,5 +1,5 @@
-import { useMemo, useState } from 'react'
-import { ChevronLeft, Minus, Plus, Save, Search, Swords, Trash2, X } from 'lucide-react'
+import { useMemo, useState, useEffect } from 'react'
+import { ChevronLeft, Minus, Plus, Save, Search, Swords, Trash2, X, ListOrdered, GripVertical, ArrowUp, ArrowDown } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import { CATALOGO } from '../lib/catalogo'
 import { useSession } from '../context/SessionContext'
@@ -88,8 +88,23 @@ function Editor({ workout, reload, onBack, onDeleted, go }) {
   const [title, setTitle] = useState(workout.title || '')
   const [picker, setPicker] = useState(false)
   const [rest, setRest] = useState(() => Number(localStorage.getItem(REST_KEY)) || 90)
+  
+  // Estados para o Drag and Drop e modo de edição de ordem
+  const [reorderMode, setReorderMode] = useState(false)
+  const [localMachines, setLocalMachines] = useState([])
+  const [dragItem, setDragItem] = useState(null)
+
   const ids = flatExercises(workout).map((e) => e.id)
   const last = useQuery(() => getLastLogs(ids), [ids.join(',')])
+
+  // Mantém a lista local sincronizada e ordenada pela prop 'position'
+  useEffect(() => {
+    const sorted = workout.machines.map(m => ({
+      ...m,
+      exercises: [...m.exercises].sort((a, b) => (a.position || 0) - (b.position || 0))
+    })).sort((a, b) => (a.position || 0) - (b.position || 0))
+    setLocalMachines(sorted)
+  }, [workout])
 
   const setRestSec = (v) => {
     const n = Math.min(300, Math.max(15, v))
@@ -117,12 +132,14 @@ function Editor({ workout, reload, onBack, onDeleted, go }) {
     if (error) return notify(error.message, 'red')
     reload()
   }
+
   const removeMachine = async (m) => {
     if (!window.confirm(`Remover ${m.name} e seus exercícios da ficha?`)) return
     const { error } = await supabase.from('machines').delete().eq('id', m.id)
     if (error) return notify(error.message, 'red')
     reload()
   }
+
   const removeWorkout = async () => {
     if (!window.confirm(`Excluir a ficha ${workout.letter}? O histórico de cargas dela também será apagado.`)) return
     const { error } = await supabase.from('workouts').delete().eq('id', workout.id)
@@ -151,6 +168,90 @@ function Editor({ workout, reload, onBack, onDeleted, go }) {
     reload()
   }
 
+  // --- LÓGICA DE DRAG AND DROP ---
+  const handleDragStart = (e, type, mIndex, eIndex = null) => {
+    e.dataTransfer.effectAllowed = 'move'
+    setDragItem({ type, mIndex, eIndex })
+  }
+
+  const handleDragOver = (e) => {
+    e.preventDefault()
+    e.dataTransfer.dropEffect = 'move'
+  }
+
+  const handleDrop = async (e, targetType, targetMIndex, targetEIndex = null) => {
+    e.preventDefault()
+    e.stopPropagation()
+
+    if (!dragItem || dragItem.type !== targetType) return
+
+    const newMachines = JSON.parse(JSON.stringify(localMachines)) // Deep copy
+    let updates = []
+
+    if (dragItem.type === 'machine') {
+      if (dragItem.mIndex === targetMIndex) return
+      const [moved] = newMachines.splice(dragItem.mIndex, 1)
+      newMachines.splice(targetMIndex, 0, moved)
+      newMachines.forEach((m, i) => { m.position = i })
+      updates = newMachines.map(m => supabase.from('machines').update({ position: m.position }).eq('id', m.id))
+
+    } else if (dragItem.type === 'exercise') {
+      if (dragItem.mIndex === targetMIndex && dragItem.eIndex === targetEIndex) return
+
+      const sourceMachine = newMachines[dragItem.mIndex]
+      const destMachine = newMachines[targetMIndex]
+
+      const [movedEx] = sourceMachine.exercises.splice(dragItem.eIndex, 1)
+      if (sourceMachine.id !== destMachine.id) movedEx.machine_id = destMachine.id
+      destMachine.exercises.splice(targetEIndex, 0, movedEx)
+
+      sourceMachine.exercises.forEach((ex, i) => { ex.position = i })
+      if (sourceMachine.id !== destMachine.id) {
+        destMachine.exercises.forEach((ex, i) => { ex.position = i })
+      }
+
+      updates = sourceMachine.exercises.map(ex => supabase.from('exercises').update({ position: ex.position, machine_id: ex.machine_id }).eq('id', ex.id))
+      if (sourceMachine.id !== destMachine.id) {
+        updates.push(...destMachine.exercises.map(ex => supabase.from('exercises').update({ position: ex.position, machine_id: ex.machine_id }).eq('id', ex.id)))
+      }
+    }
+
+    setLocalMachines(newMachines)
+    setDragItem(null)
+    await Promise.all(updates)
+    reload()
+  }
+
+  // --- LÓGICA DE MOVER POR BOTÕES (MOBILE FRIENDLY) ---
+  const moveMachine = async (index, direction) => {
+    const newMachines = JSON.parse(JSON.stringify(localMachines))
+    if (direction === 'up' && index > 0) {
+      [newMachines[index - 1], newMachines[index]] = [newMachines[index], newMachines[index - 1]]
+    } else if (direction === 'down' && index < newMachines.length - 1) {
+      [newMachines[index + 1], newMachines[index]] = [newMachines[index], newMachines[index + 1]]
+    } else return
+
+    newMachines.forEach((m, i) => { m.position = i })
+    setLocalMachines(newMachines)
+    await Promise.all(newMachines.map(m => supabase.from('machines').update({ position: m.position }).eq('id', m.id)))
+    reload()
+  }
+
+  const moveExercise = async (mIndex, eIndex, direction) => {
+    const newMachines = JSON.parse(JSON.stringify(localMachines))
+    const machine = newMachines[mIndex]
+    if (direction === 'up' && eIndex > 0) {
+      [machine.exercises[eIndex - 1], machine.exercises[eIndex]] = [machine.exercises[eIndex], machine.exercises[eIndex - 1]]
+    } else if (direction === 'down' && eIndex < machine.exercises.length - 1) {
+      [machine.exercises[eIndex + 1], machine.exercises[eIndex]] = [machine.exercises[eIndex], machine.exercises[eIndex + 1]]
+    } else return
+
+    machine.exercises.forEach((e, i) => { e.position = i })
+    setLocalMachines(newMachines)
+    await Promise.all(machine.exercises.map(ex => supabase.from('exercises').update({ position: ex.position }).eq('id', ex.id)))
+    reload()
+  }
+
   return (
     <div className="stack">
       <div className="row between">
@@ -167,52 +268,107 @@ function Editor({ workout, reload, onBack, onDeleted, go }) {
             <button className="icon-btn plain" onClick={saveTitle} aria-label="Salvar título"><Save size={16} /></button>
           </div>
         </label>
-        <Btn icon={Swords} variant="ghost" onClick={() => go('treinar', { workoutId: workout.id })} disabled={!ids.length}>Treinar esta ficha</Btn>
+        
+        <div className="row gap wrap">
+          <Btn icon={Swords} onClick={() => go('treinar', { workoutId: workout.id })} disabled={!ids.length}>Treinar</Btn>
+          <Btn 
+            icon={ListOrdered} 
+            variant={reorderMode ? 'solid' : 'ghost'} 
+            onClick={() => setReorderMode(!reorderMode)}
+            disabled={!ids.length}
+          >
+            {reorderMode ? 'Concluir Edição' : 'Editar Ordem'}
+          </Btn>
+        </div>
       </Panel>
 
       <h3 className="mono tiny dim">MATRIZ DE COMBATE: {ids.length} EXERCÍCIOS</h3>
 
       {workout.machines.length === 0 && <Empty title="Ficha vazia">Adicione máquinas e exercícios do catálogo.</Empty>}
 
-      {workout.machines.map((m) => (
-        <Panel key={m.id}>
+      {localMachines.map((m, mIndex) => (
+        <Panel key={m.id}
+          draggable={reorderMode}
+          onDragStart={(e) => handleDragStart(e, 'machine', mIndex)}
+          onDragOver={handleDragOver}
+          onDrop={(e) => handleDrop(e, 'machine', mIndex)}
+          style={reorderMode ? { border: '2px dashed #444', cursor: 'grab', opacity: dragItem?.mIndex === mIndex && dragItem.type === 'machine' ? 0.5 : 1 } : {}}
+        >
           <div className="row between">
-            <div>
-              <h3 className="h-md">{m.name}</h3>
-              <Chip tone={m.kind === 'cardio' ? 'violet' : 'cyan'}>{(m.kind || 'maquina').toUpperCase()}</Chip>
+            <div className="row gap" style={{ cursor: reorderMode ? 'grab' : 'default' }}>
+              {reorderMode && <GripVertical size={20} className="dim" />}
+              <div>
+                <h3 className="h-md">{m.name}</h3>
+                <Chip tone={m.kind === 'cardio' ? 'violet' : 'cyan'}>{(m.kind || 'maquina').toUpperCase()}</Chip>
+              </div>
             </div>
-            <button className="icon-btn" onClick={() => removeMachine(m)} aria-label={`Remover ${m.name}`}><Trash2 size={16} /></button>
+            
+            <div className="row gap">
+              {reorderMode ? (
+                <>
+                  <button className="icon-btn plain" onClick={() => moveMachine(mIndex, 'up')} disabled={mIndex === 0}><ArrowUp size={16} /></button>
+                  <button className="icon-btn plain" onClick={() => moveMachine(mIndex, 'down')} disabled={mIndex === localMachines.length - 1}><ArrowDown size={16} /></button>
+                </>
+              ) : (
+                <button className="icon-btn" onClick={() => removeMachine(m)} aria-label={`Remover ${m.name}`}><Trash2 size={16} /></button>
+              )}
+            </div>
           </div>
+
           <ul className="ex-list">
-            {m.exercises.map((e) => {
+            {m.exercises.map((e, eIndex) => {
               const l = last.data?.[e.id]
               const cardio = m.kind === 'cardio'
               const isometria = m.kind === 'isometria'
               return (
-                <li key={e.id}>
+                <li key={e.id}
+                  draggable={reorderMode}
+                  onDragStart={(ev) => handleDragStart(ev, 'exercise', mIndex, eIndex)}
+                  onDragOver={handleDragOver}
+                  onDrop={(ev) => handleDrop(ev, 'exercise', mIndex, eIndex)}
+                  style={reorderMode ? { border: '1px dashed #333', padding: '0.5rem', background: 'rgba(0,0,0,0.2)', cursor: 'grab' } : {}}
+                >
                   <div className="row between">
-                    <b>{e.name}</b>
-                    <button className="icon-btn plain" onClick={() => removeExercise(e.id)} aria-label={`Remover ${e.name}`}><X size={16} /></button>
+                    <div className="row gap">
+                      {reorderMode && <GripVertical size={16} className="dim" />}
+                      <b>{e.name}</b>
+                    </div>
+                    
+                    <div className="row gap">
+                      {reorderMode ? (
+                        <>
+                          <button className="icon-btn plain dim" onClick={() => moveExercise(mIndex, eIndex, 'up')} disabled={eIndex === 0}><ArrowUp size={16} /></button>
+                          <button className="icon-btn plain dim" onClick={() => moveExercise(mIndex, eIndex, 'down')} disabled={eIndex === m.exercises.length - 1}><ArrowDown size={16} /></button>
+                        </>
+                      ) : (
+                        <button className="icon-btn plain" onClick={() => removeExercise(e.id)} aria-label={`Remover ${e.name}`}><X size={16} /></button>
+                      )}
+                    </div>
                   </div>
-                  <div className="targets">
-                    {cardio ? (
-                      <Target label="TEMPO" unit="MIN" min={1} value={e.target_minutes} onSave={(v) => saveTarget(e.id, { target_minutes: v })} />
-                    ) : isometria ? (
-                      <>
-                        <Target label="TEMPO" unit="SEG" min={5} value={e.target_minutes} onSave={(v) => saveTarget(e.id, { target_minutes: v })} />
-                        <Target label="REPS" min={1} value={e.target_reps} onSave={(v) => saveTarget(e.id, { target_reps: v })} />
-                      </>
-                    ) : (
-                      <>
-                        <Target label="SÉRIES" min={1} value={e.target_sets} onSave={(v) => saveTarget(e.id, { target_sets: v })} />
-                        <Target label="REPS" min={1} value={e.target_reps} onSave={(v) => saveTarget(e.id, { target_reps: v })} />
-                        <Target label="CARGA" unit="KG" step="0.25" value={e.target_weight} onSave={(v) => saveTarget(e.id, { target_weight: v })} />
-                      </>
-                    )}
-                  </div>
-                  <span className="mono tiny dim">
-                    {l ? `ÚLTIMO REGISTRO: ${l.duration_min != null ? `${fmt1(l.duration_min)} min` : `${fmt1(l.weight)} kg × ${l.reps}`}` : 'SEM REGISTRO AINDA'}
-                  </span>
+
+                  {!reorderMode && (
+                    <>
+                      <div className="targets">
+                        {cardio ? (
+                          <Target label="TEMPO" unit="MIN" min={1} value={e.target_minutes} onSave={(v) => saveTarget(e.id, { target_minutes: v })} />
+                        ) : isometria ? (
+                          <>
+                            <Target label="TEMPO" unit="SEG" min={5} value={e.target_minutes} onSave={(v) => saveTarget(e.id, { target_minutes: v })} />
+                            <Target label="REPS" min={1} value={e.target_reps} onSave={(v) => saveTarget(e.id, { target_reps: v })} />
+                          </>
+                        ) : (
+                          <>
+                            <Target label="SÉRIES" min={1} value={e.target_sets} onSave={(v) => saveTarget(e.id, { target_sets: v })} />
+                            <Target label="REPS" min={1} value={e.target_reps} onSave={(v) => saveTarget(e.id, { target_reps: v })} />
+                            <Target label="CARGA" unit="KG" step="0.25" value={e.target_weight} onSave={(v) => saveTarget(e.id, { target_weight: v })} />
+                          </>
+                        )}
+                      </div>
+                      <span className="mono tiny dim">
+                        {l ? `ÚLTIMO REGISTRO: ${l.duration_min != null ? `${fmt1(l.duration_min)} min` : `${fmt1(l.weight)} kg × ${l.reps}`}` : 'SEM REGISTRO AINDA'}
+                      </span>
+                    </>
+                  )}
                 </li>
               )
             })}
@@ -220,7 +376,9 @@ function Editor({ workout, reload, onBack, onDeleted, go }) {
         </Panel>
       ))}
 
-      <Btn variant="ghost" icon={Plus} onClick={() => setPicker(true)}>Adicionar exercício à ficha</Btn>
+      {!reorderMode && (
+        <Btn variant="ghost" icon={Plus} onClick={() => setPicker(true)}>Adicionar exercício à ficha</Btn>
+      )}
 
       <Panel>
         <SysHead>[CRONÔMETRO DE DESCANSO PADRÃO]</SysHead>
@@ -305,7 +463,6 @@ function Picker({ onClose, onAdd }) {
   )
 }
 
-// Campo numérico que salva ao sair do campo
 function Target({ label, value, unit, step = '1', min = 0, onSave }) {
   const commit = (ev) => {
     const v = Number(ev.target.value)
