@@ -1,22 +1,5 @@
 import { supabase } from './supabase'
 
-// busca por "nome#0054" ou só "nome" (retorna vários)
-export async function searchProfiles(query) {
-  const q = query.trim()
-  if (!q) return []
-  const [namePart, tagPart] = q.split('#')
-  const name = namePart.trim()
-  let req = supabase.from('profiles').select('id, hunter_name, name, tag, avatar_url, level, last_seen')
-  if (tagPart) {
-    req = req.or(`hunter_name.ilike.%${name}%,name.ilike.%${name}%`).eq('tag', tagPart)
-  } else {
-    req = req.or(`hunter_name.ilike.%${name}%,name.ilike.%${name}%`)
-  }
-  const { data, error } = await req.limit(10)
-  if (error) throw error
-  return data
-}
-
 export async function sendFriendRequest(myId, theirId) {
   const { error } = await supabase.from('friendships').insert({ requester_id: myId, addressee_id: theirId })
   if (error) throw error
