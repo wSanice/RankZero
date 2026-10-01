@@ -82,6 +82,108 @@ export const INVOKABLE_BOSSES = {
   },
 }
 
+export const DAILY_BOSSES = [
+  {
+    id: 'goblin_king',
+    name: 'REZAK, O REI GOBLIN',
+    subtitle: 'NÍVEL 5 · FRACO CONTRA LADINO (+20% DANO)',
+    max_hp: 1000,
+    reward_xp: 150,
+    weak_vs: 'ladino',
+    bonus_mult: 1.2,
+    difficulty: 'Fácil'
+  },
+  {
+    id: 'stone_golem',
+    name: 'GOLEM DE QUARTZO',
+    subtitle: 'NÍVEL 8 · FRACO CONTRA COLOSSO (+20% DANO)',
+    max_hp: 1100,
+    reward_xp: 165,
+    weak_vs: 'colosso',
+    bonus_mult: 1.2,
+    difficulty: 'Fácil'
+  },
+  {
+    id: 'marsh_drake',
+    name: 'SERPENTE DOS PÂNTANOS',
+    subtitle: 'NÍVEL 10 · FRACO CONTRA GUARDIÃO (+20% DANO)',
+    max_hp: 1200,
+    reward_xp: 180,
+    weak_vs: 'guardiao',
+    bonus_mult: 1.2,
+    difficulty: 'Fácil'
+  },
+  {
+    id: 'iron_orc',
+    name: 'KARGATH, O CHEFE ORC',
+    subtitle: 'NÍVEL 15 · FRACO CONTRA COLOSSO (+20% DANO)',
+    max_hp: 1400,
+    reward_xp: 220,
+    weak_vs: 'colosso',
+    bonus_mult: 1.2,
+    difficulty: 'Médio'
+  },
+  {
+    id: 'shadow_assassin',
+    name: 'VERMIN, A LÂMINA DAS SOMBRAS',
+    subtitle: 'NÍVEL 18 · FRACO CONTRA LADINO (+20% DANO)',
+    max_hp: 1500,
+    reward_xp: 240,
+    weak_vs: 'ladino',
+    bonus_mult: 1.2,
+    difficulty: 'Médio'
+  },
+  {
+    id: 'shield_gargoyle',
+    name: 'GÁRGOULA DE OBSIDIANA',
+    subtitle: 'NÍVEL 20 · FRACO CONTRA GUARDIÃO (+20% DANO)',
+    max_hp: 1600,
+    reward_xp: 260,
+    weak_vs: 'guardiao',
+    bonus_mult: 1.2,
+    difficulty: 'Médio'
+  },
+  {
+    id: 'frost_wyrm',
+    name: 'WYRM DAS NEVES',
+    subtitle: 'NÍVEL 25 · FRACO CONTRA LADINO (+20% DANO)',
+    max_hp: 1800,
+    reward_xp: 300,
+    weak_vs: 'ladino',
+    bonus_mult: 1.2,
+    difficulty: 'Difícil'
+  },
+  {
+    id: 'infernal_behemoth',
+    name: 'BEHEMOTH INFERNAL',
+    subtitle: 'NÍVEL 28 · FRACO CONTRA COLOSSO (+20% DANO)',
+    max_hp: 1900,
+    reward_xp: 320,
+    weak_vs: 'colosso',
+    bonus_mult: 1.2,
+    difficulty: 'Difícil'
+  },
+  {
+    id: 'dread_knight',
+    name: 'CAVALEIRO DA ALVORADA NEGRA',
+    subtitle: 'NÍVEL 30 · FRACO CONTRA GUARDIÃO (+20% DANO)',
+    max_hp: 2000,
+    reward_xp: 350,
+    weak_vs: 'guardiao',
+    bonus_mult: 1.2,
+    difficulty: 'Difícil'
+  }
+]
+
+export function getDailyBoss(dateStr = localDate()) {
+  let hash = 0
+  for (let i = 0; i < dateStr.length; i++) {
+    hash = dateStr.charCodeAt(i) + ((hash << 5) - hash)
+  }
+  const index = Math.abs(hash) % DAILY_BOSSES.length
+  return DAILY_BOSSES[index]
+}
+
 // Mesma fórmula do trigger: dano = peso × reps ; xp = max(round(dano/40), 5)
 export const damageOf = (weight, reps) => Number(weight || 0) * Math.max(Number(reps || 1), 1)
 export const xpOf = (damage) => Math.max(Math.round(damage / 40), 5)
