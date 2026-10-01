@@ -59,7 +59,7 @@ export const INVOKABLE_BOSSES = {
   colosso: {
     name: 'GRENDEL, O TITÃ DE FERRO',
     subtitle: 'FRACO CONTRA COLOSSO · BÔNUS +20% DANO',
-    max_hp: 80000,
+    max_hp: 8000,
     reward_xp: 800,
     weak_vs: 'colosso',
     bonus_mult: 1.2,
@@ -67,7 +67,7 @@ export const INVOKABLE_BOSSES = {
   ladino: {
     name: 'NIGHTSHADE, A LÂMINA SILENCIOSA',
     subtitle: 'FRACO CONTRA LADINO · BÔNUS +20% DANO',
-    max_hp: 60000,
+    max_hp: 6000,
     reward_xp: 700,
     weak_vs: 'ladino',
     bonus_mult: 1.2,
@@ -75,7 +75,7 @@ export const INVOKABLE_BOSSES = {
   guardiao: {
     name: 'BASTION, O MURO VIVO',
     subtitle: 'FRACO CONTRA GUARDIÃO · BÔNUS +20% DANO',
-    max_hp: 100000,
+    max_hp: 10000,
     reward_xp: 900,
     weak_vs: 'guardiao',
     bonus_mult: 1.2,
