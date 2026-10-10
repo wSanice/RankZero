@@ -106,7 +106,11 @@ export function SessionProvider({ children }) {
       const p = profileRef.current
       if (!p || !gain) return null
       const next = applyXp(p, gain)
-      const patch = { xp: next.xp, level: next.level, free_points: next.free_points, rank: rankFromLevel(next.level) }
+      // applyXp já devolve os totais acumulados de str/agi/vit (não um delta) —
+      // free_points não existe mais no retorno (pontos são automáticos por
+      // classe desde POINTS_BY_CLASS), salvar isso aqui é o que faltava pros
+      // pontos de atributo de missão/recompensa de raid não se perderem
+      const patch = { xp: next.xp, level: next.level, str: next.str, agi: next.agi, vit: next.vit, rank: rankFromLevel(next.level) }
       const ok = await updateProfile(patch)
       if (ok) {
         notify(`+${gain} XP`, 'gold')

@@ -24,7 +24,10 @@ export async function getFriends(uid) {
   }))
 }
 
-const normalize = (s = '') => s.toLowerCase().replace(/\s+/g, '')
+// aceita null/undefined (perfil sem hunter_name, por exemplo) sem quebrar —
+// o parâmetro default só funciona pra 'undefined', não pra 'null', por isso
+// o '|| ""' extra
+const normalize = (s) => (s || '').toLowerCase().replace(/\s+/g, '')
 
 export async function searchProfiles(query) {
   const q = query.trim()
@@ -38,7 +41,7 @@ export async function searchProfiles(query) {
   const loosePart = name.slice(0, 3) || name
   let req = supabase.from('profiles').select('id, hunter_name, name, tag, avatar_url, level, last_seen')
   req = req.or(`hunter_name.ilike.%${loosePart}%,name.ilike.%${loosePart}%`)
-  if (tagPart) req = req.eq('tag', tagPart)
+  if (tagPart) req = req.eq('tag', tagPart.trim())
 
   const { data, error } = await req.limit(30)
   if (error) throw error
