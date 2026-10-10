@@ -3,7 +3,7 @@ import { ChevronRight, Skull, Trophy } from 'lucide-react'
 import { useSession } from '../context/SessionContext'
 import { useNow, useQuery, must } from '../lib/useQuery'
 import { supabase } from '../lib/supabase'
-import { getBoss, getGlobalBoss, summonInvokableBoss } from '../lib/data'
+import { getBoss, getGlobalBoss, summonInvokableBoss, getBiweeklyBoss, getCampaign90Boss } from '../lib/data'
 import { fmt, startOfToday, INVOKABLE_BOSSES } from '../lib/rpg'
 import { Btn, Chip, ErrorNote, Loading, Panel, SegBar, SysHead } from '../components/ui'
 
@@ -13,9 +13,13 @@ export default function Raid({ go }) {
   const [busy, setBusy] = useState(false)
   const boss = useQuery(() => getBoss(user.id), [user.id])
   const [globalBoss, setGlobalBoss] = useState(null)
+  const [biweekly, setBiweekly] = useState(null)
+  const [campaign90, setCampaign90] = useState(null)
 
   useEffect(() => {
     getGlobalBoss().then(setGlobalBoss).catch(() => {})
+    getBiweeklyBoss().then(setBiweekly).catch(() => {})
+    getCampaign90Boss().then(setCampaign90).catch(() => {})
   }, [])
 
   const today = useQuery(async () => {
@@ -72,6 +76,30 @@ export default function Raid({ go }) {
           <h2 className="h-lg">{globalBoss.name}</h2>
           <SegBar value={Number(globalBoss.current_hp)} max={Number(globalBoss.max_hp)} tone="gold" segments={10} label="HP do Igris" />
           <p className="mono tiny dim">Seu dano de treino também é somado a este evento automaticamente.</p>
+        </Panel>
+      )}
+
+      {biweekly && biweekly.status === 'active' && (
+        <Panel tone="violet" brackets>
+          <div className="row between">
+            <Chip tone="violet">BOSS QUINZENAL · AMEAÇA DE SERVIDOR</Chip>
+            <span className="mono tiny dim">{Math.round((Number(biweekly.current_hp) / Number(biweekly.max_hp)) * 100)}% HP</span>
+          </div>
+          <h2 className="h-lg">{biweekly.name}</h2>
+          <SegBar value={Number(biweekly.current_hp)} max={Number(biweekly.max_hp)} tone="violet" segments={10} label="HP do boss quinzenal" />
+          <p className="mono tiny dim">Cooperativo: todo treino de todo caçador soma dano. +{fmt(biweekly.reward_xp)} XP ao derrotar.</p>
+        </Panel>
+      )}
+
+      {campaign90 && campaign90.status === 'active' && (
+        <Panel tone="gold" brackets>
+          <div className="row between">
+            <Chip tone="gold">BOSS DE CAMPANHA · 90 DIAS</Chip>
+            <span className="mono tiny dim">{Math.round((Number(campaign90.current_hp) / Number(campaign90.max_hp)) * 100)}% HP</span>
+          </div>
+          <h2 className="h-lg">{campaign90.name}</h2>
+          <SegBar value={Number(campaign90.current_hp)} max={Number(campaign90.max_hp)} tone="gold" segments={10} label="HP do boss de campanha" />
+          <p className="mono tiny dim">Cooperativo: todo treino de todo caçador soma dano. +{fmt(campaign90.reward_xp)} XP ao derrotar.</p>
         </Panel>
       )}
 

@@ -184,6 +184,85 @@ export function getDailyBoss(dateStr = localDate()) {
   return DAILY_BOSSES[index]
 }
 
+// Escolhe o boss diário pelo NÍVEL do caçador (o mais forte cujo nível <= nível do jogador),
+// é isso que dá a progressão "por nível de cada classe": o monstro do dia some a cada
+// virada de dia e troca de dificuldade conforme o caçador evolui.
+export function dailyBossForLevel(level = 1, dateStr = localDate()) {
+  const lvl = Math.max(1, Number(level) || 1)
+  const eligible = DAILY_BOSSES.filter((b) => levelFromSubtitle(b) <= lvl)
+  const pool = eligible.length ? eligible : [DAILY_BOSSES[0]]
+  // dentro do grupo elegível, ainda varia por dia pra não repetir sempre o mesmo
+  let hash = 0
+  for (let i = 0; i < dateStr.length; i++) hash = dateStr.charCodeAt(i) + ((hash << 5) - hash)
+  return pool[Math.abs(hash) % pool.length]
+}
+
+function levelFromSubtitle(boss) {
+  const m = /NÍVEL\s+(\d+)/i.exec(boss.subtitle || '')
+  return m ? Number(m[1]) : 1
+}
+
+// Multiplicador de dano por combinação classe x fraqueza do boss (tabela fixa).
+// Mesma regra usada no trigger fn_apply_weight_log (003_boss_fixes_and_guild_invites.sql):
+// se a classe do caçador bate com weak_vs do boss, aplica bonus_mult; senão, 1x.
+export function classDamageMultiplier(weakVs, playerClass, bonusMult = 1.2) {
+  return weakVs && playerClass && weakVs === playerClass ? bonusMult : 1
+}
+
+export const damageAgainst = (baseDmg, boss, playerClass) =>
+  Math.round(baseDmg * classDamageMultiplier(boss?.weak_vs, playerClass, boss?.bonus_mult ?? 1.2))
+
+// ---------- Bosses periódicos: quinzenal e campanha de 90 dias ----------
+// Globais/cooperativos: qualquer treino de qualquer caçador bate neles.
+// HP calibrado pra dar pra zerar sozinho com ~3 dias de treino consistente,
+// bem mais rápido treinando em grupo (cada caçador soma dano ao mesmo boss).
+export const BIWEEKLY_BOSS_POOL = [
+  { name: 'MORRIGHAN, A CEIFADORA DE CICLOS', subtitle: 'BOSS QUINZENAL · AMEAÇA DE SERVIDOR' },
+  { name: 'THARN, O DEVORADOR DE LUA', subtitle: 'BOSS QUINZENAL · AMEAÇA DE SERVIDOR' },
+  { name: 'VESPERION, SOMBRA DAS DUAS SEMANAS', subtitle: 'BOSS QUINZENAL · AMEAÇA DE SERVIDOR' },
+]
+export const BIWEEKLY_BOSS_MAX_HP = 45000
+export const BIWEEKLY_BOSS_REWARD_XP = 2500
+export const BIWEEKLY_CYCLE_DAYS = 15
+export const BIWEEKLY_DEADLINE_DAYS = 15 // fica ativo o ciclo inteiro; ~3 dias de treino já derrubam
+
+export const CAMPAIGN90_BOSS_POOL = [
+  { name: 'AZATHRON, O ARQUITETO DO ABISMO', subtitle: 'BOSS DE CAMPANHA · 90 DIAS' },
+  { name: 'OBLIVION, O REI SEM TRONO', subtitle: 'BOSS DE CAMPANHA · 90 DIAS' },
+]
+export const CAMPAIGN90_BOSS_MAX_HP = 300000
+export const CAMPAIGN90_BOSS_REWARD_XP = 15000
+export const CAMPAIGN90_CYCLE_DAYS = 90
+export const CAMPAIGN90_DEADLINE_DAYS = 90
+
+// Chave de ciclo determinística (não depende de relógio do servidor estar "na hora certa",
+// só da data local) — todo mundo que abrir o app dentro da mesma janela cai no mesmo boss.
+export function cycleKey(days, epoch = new Date('2026-01-01T00:00:00Z')) {
+  const now = new Date()
+  const diffDays = Math.floor((now - epoch) / 86400000)
+  const bucket = Math.floor(diffDays / days)
+  return `${days}d-${bucket}`
+}
+
+export function pickFromPool(pool, key) {
+  let hash = 0
+  for (let i = 0; i < key.length; i++) hash = key.charCodeAt(i) + ((hash << 5) - hash)
+  return pool[Math.abs(hash) % pool.length]
+}
+
+// ---------- validação de nome de caçador ----------
+// Sem espaço (uso '_' se precisar separar palavras), 3–20 caracteres, só
+// letras/números/underscore — evita nomes colidindo na busca nome#tag.
+export const USERNAME_RE = /^[a-zA-Z0-9_À-ÿ]{3,20}$/
+export const hasSpace = (s = '') => /\s/.test(s)
+export function validateUsername(raw = '') {
+  const v = (raw || '').trim()
+  if (!v) return { ok: false, reason: 'Nome não pode ser vazio.' }
+  if (hasSpace(v)) return { ok: false, reason: 'Nome não pode conter espaço. Use "_" se quiser separar palavras.' }
+  if (!USERNAME_RE.test(v)) return { ok: false, reason: 'Use só letras, números e "_" (3–20 caracteres).' }
+  return { ok: true, value: v }
+}
+
 // Mesma fórmula do trigger: dano = peso × reps ; xp = max(round(dano/40), 5)
 export const damageOf = (weight, reps) => Number(weight || 0) * Math.max(Number(reps || 1), 1)
 export const xpOf = (damage) => Math.max(Math.round(damage / 40), 5)

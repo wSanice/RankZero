@@ -293,6 +293,17 @@ function SessionView({ workout, onExit, go }) {
             </span>
           </div>
           <h3 className="h-md">{daily.name}</h3>
+          <p className="mono tiny dim">
+            NÍVEL {daily.boss_level || 1}
+            {daily.weak_vs && ` · FRACO CONTRA ${daily.weak_vs.toUpperCase()} (+${Math.round((Number(daily.bonus_mult || 1.2) - 1) * 100)}% DANO)`}
+          </p>
+          {daily.weak_vs && (
+            <p className="mono tiny gold">
+              {daily.weak_vs === profile.class
+                ? `Sua classe explora a fraqueza: dano x${daily.bonus_mult || 1.2}`
+                : 'Sua classe não é a fraqueza deste monstro: dano normal'}
+            </p>
+          )}
           <SegBar value={Number(daily.current_hp)} max={Number(daily.max_hp)} tone="cyan" label="HP do monstro diário" />
         </Panel>
       )}

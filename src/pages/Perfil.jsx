@@ -3,9 +3,10 @@ import { Camera, Copy, Lock, LogOut, Save, Search } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import { useSession } from '../context/SessionContext'
 import { useQuery, must } from '../lib/useQuery'
-import { ATTRS, CLASSES, SECOND_CLASS_LEVEL, TITLE_LEVEL, fmt, fmt1, localDate, titleFor, xpToNext } from '../lib/rpg'
+import { ATTRS, CLASSES, SECOND_CLASS_LEVEL, TITLE_LEVEL, fmt, fmt1, localDate, titleFor, xpToNext, validateUsername } from '../lib/rpg'
 import { BigStat, Btn, Chip, ErrorNote, Loading, Panel, RankBadge, SegBar, SysHead } from '../components/ui'
 import { searchProfiles, sendFriendRequest, getFriends, acceptFriendRequest, isOnline } from '../lib/friends'
+import { getMyGuild, createGuild, sendGuildInvite, getIncomingGuildInvites, acceptGuildInvite, declineGuildInvite, leaveGuild } from '../lib/guild'
 
 export default function Perfil({ go }) {
   const { profile: p, user, updateProfile, notify, signOut } = useSession()
@@ -16,10 +17,70 @@ export default function Perfil({ go }) {
   const [term, setTerm] = useState('')
   const [results, setResults] = useState([])
   const [friends, setFriends] = useState([])
+  const [guild, setGuild] = useState(null)
+  const [guildInvites, setGuildInvites] = useState([])
+  const [guildName, setGuildName] = useState('')
+  const [guildBusy, setGuildBusy] = useState(false)
 
   useEffect(() => {
     getFriends(user.id).then(setFriends).catch(() => { })
+    reloadGuild()
   }, [user.id])
+
+  const reloadGuild = () => {
+    getMyGuild(user.id).then(setGuild).catch(() => { })
+    getIncomingGuildInvites(user.id).then(setGuildInvites).catch(() => { })
+  }
+
+  const makeGuild = async () => {
+    setGuildBusy(true)
+    try {
+      await createGuild(guildName)
+      setGuildName('')
+      notify('GUILDA FUNDADA')
+      reloadGuild()
+    } catch (e) {
+      notify(e.message, 'red')
+    } finally {
+      setGuildBusy(false)
+    }
+  }
+
+  const inviteToGuild = async (friendId) => {
+    if (!guild) return
+    try {
+      await sendGuildInvite(guild.id, user.id, friendId)
+      notify('CONVITE DE GUILDA ENVIADO')
+    } catch (e) {
+      notify(e.message, 'red')
+    }
+  }
+
+  const respondGuildInvite = async (inviteId, accept) => {
+    try {
+      if (accept) {
+        await acceptGuildInvite(inviteId)
+        notify('VOCÊ ENTROU NA GUILDA', 'gold')
+      } else {
+        await declineGuildInvite(inviteId)
+        notify('CONVITE RECUSADO')
+      }
+      reloadGuild()
+    } catch (e) {
+      notify(e.message, 'red')
+    }
+  }
+
+  const exitGuild = async () => {
+    if (!guild) return
+    try {
+      await leaveGuild(guild.id, user.id)
+      notify('VOCÊ SAIU DA GUILDA')
+      reloadGuild()
+    } catch (e) {
+      notify(e.message, 'red')
+    }
+  }
 
   const search = async () => {
     if (!term.includes('#')) return notify('Busque como nome#0000', 'red')
@@ -85,7 +146,16 @@ export default function Perfil({ go }) {
   const saveName = async () => {
     const v = hunter.trim()
     if (v === (p.hunter_name || '')) return
-    if (await updateProfile({ hunter_name: v || null })) notify('NOME DE CAÇADOR ATUALIZADO')
+    if (!v) {
+      if (await updateProfile({ hunter_name: null })) notify('NOME DE CAÇADOR ATUALIZADO')
+      return
+    }
+    const check = validateUsername(v)
+    if (!check.ok) return notify(check.reason, 'red')
+    if (await updateProfile({ hunter_name: check.value })) {
+      setHunter(check.value)
+      notify('NOME DE CAÇADOR ATUALIZADO')
+    }
   }
 
   const upload = async (e) => {
@@ -144,9 +214,16 @@ export default function Perfil({ go }) {
         <label className="field">
           <span className="mono tiny">NOME DE CAÇADOR</span>
           <div className="field-box">
-            <input value={hunter} onChange={(e) => setHunter(e.target.value)} onBlur={saveName} placeholder={p.name || 'Como o sistema chama você'} maxLength={30} />
+            <input
+              value={hunter}
+              onChange={(e) => setHunter(e.target.value.replace(/\s/g, '_'))}
+              onBlur={saveName}
+              placeholder={p.name || 'Como o sistema chama você'}
+              maxLength={20}
+            />
             <button className="icon-btn plain" onClick={saveName} aria-label="Salvar nome"><Save size={16} /></button>
           </div>
+          <span className="mono tiny dim">Sem espaço · 3–20 caracteres · letras, números e "_"</span>
         </label>
 
         <div className="row between end">
@@ -188,6 +265,64 @@ export default function Perfil({ go }) {
             )}
           </div>
         ))}
+      </Panel>
+
+      {!!guildInvites.length && (
+        <Panel tone="violet" brackets>
+          <SysHead right={<Chip tone="violet">{guildInvites.length}</Chip>}>[CONVITES DE GUILDA]</SysHead>
+          {guildInvites.map((inv) => (
+            <div key={inv.id} className="row between">
+              <span>
+                <b>{inv.guild?.name}</b>
+                <span className="mono tiny dim"> · convidado por {inv.inviter?.hunter_name || inv.inviter?.name}#{inv.inviter?.tag}</span>
+              </span>
+              <span className="row gap">
+                <Btn variant="ghost" onClick={() => respondGuildInvite(inv.id, true)}>Aceitar</Btn>
+                <Btn variant="danger" onClick={() => respondGuildInvite(inv.id, false)}>Recusar</Btn>
+              </span>
+            </div>
+          ))}
+        </Panel>
+      )}
+
+      <Panel>
+        <SysHead right={guild && <Chip tone="slate">{guild.members?.length || 0} MEMBROS</Chip>}>[GUILDA]</SysHead>
+        {guild ? (
+          <>
+            <h3 className="h-md">{guild.name}</h3>
+            <ul className="log-list">
+              {guild.members?.map((m) => (
+                <li key={m.user_id}>
+                  <span className="row gap">
+                    <span className={`dot ${isOnline(m.profile?.last_seen) ? '' : 'off'}`} />
+                    {m.profile?.hunter_name || m.profile?.name}#{m.profile?.tag}
+                  </span>
+                  <span className="mono tiny dim">Nv.{m.profile?.level}</span>
+                </li>
+              ))}
+            </ul>
+            {!!friends.filter((f) => f.status === 'accepted').length && (
+              <>
+                <p className="mono tiny dim">CONVIDAR AMIGO</p>
+                {friends.filter((f) => f.status === 'accepted' && !guild.members?.some((m) => m.user_id === f.profile.id)).map((f) => (
+                  <div key={f.friendshipId} className="row between">
+                    <span>{f.profile.hunter_name || f.profile.name}#{f.profile.tag}</span>
+                    <Btn variant="ghost" onClick={() => inviteToGuild(f.profile.id)}>Convidar</Btn>
+                  </div>
+                ))}
+              </>
+            )}
+            <Btn variant="danger" onClick={exitGuild}>Sair da guilda</Btn>
+          </>
+        ) : (
+          <>
+            <p className="muted">Você ainda não tem guilda. Funde uma para convidar amigos e enfrentar o Boss Global juntos.</p>
+            <div className="field-box">
+              <input value={guildName} onChange={(e) => setGuildName(e.target.value)} placeholder="Nome da guilda" maxLength={30} />
+              <Btn disabled={guildBusy || guildName.trim().length < 3} onClick={makeGuild}>Fundar</Btn>
+            </div>
+          </>
+        )}
       </Panel>
 
       <Panel>
