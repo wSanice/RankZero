@@ -21,6 +21,7 @@ export default function Perfil({ go }) {
   const [guildInvites, setGuildInvites] = useState([])
   const [guildName, setGuildName] = useState('')
   const [guildBusy, setGuildBusy] = useState(false)
+  const [changingClass, setChangingClass] = useState(false)
 
   useEffect(() => {
     getFriends(user.id).then(setFriends).catch(() => { })
@@ -136,6 +137,18 @@ export default function Perfil({ go }) {
     const patch = { class: primary, second_class: second === primary ? null : second }
     if (p.title) patch.title = titleFor(patch.class, patch.second_class)
     await updateProfile(patch)
+  }
+
+  // "Mudar de treino": evolui a formação (classe primária) do caçador. Diferente
+  // da segunda classe (nível 50, que SOMA uma classe) e do título (nível 100, que
+  // COMBINA as duas) — isto troca a formação em si, sem desbloquear título. Os
+  // atributos já conquistados continuam, só os PRÓXIMOS pontos de nível passam a
+  // seguir a tabela da nova classe (pointsForLevel em rpg.js).
+  const changeTraining = async (key) => {
+    if (key === p.class) return setChangingClass(false)
+    await setClasses({ primary: key })
+    notify(`FORMAÇÃO EVOLUÍDA: ${CLASSES[key]?.short?.toUpperCase()}`, 'gold')
+    setChangingClass(false)
   }
 
   const claimTitle = async () => {
@@ -328,16 +341,30 @@ export default function Perfil({ go }) {
       <Panel>
         <SysHead right={<Chip tone="slate">PONTOS AUTOMÁTICOS</Chip>}>[CLASSES E TÍTULO]</SysHead>
 
-        <p className="mono tiny dim">CLASSE INICIAL · NÍVEL 1</p>
-        <div className="class-row">
-          {Object.values(CLASSES).map((c) => (
-            <button key={c.key} className={`class-opt ${p.class === c.key ? 'on' : ''}`} onClick={() => setClasses({ primary: c.key })} aria-pressed={p.class === c.key}>
-              <b className="h-md">{c.short}</b>
-              <span className="mono tiny dim">+ {c.attrLabel.toUpperCase()}</span>
-            </button>
-          ))}
-        </div>
-        <p className="muted">{CLASSES[p.class]?.label}: {CLASSES[p.class]?.focus}.</p>
+        <p className="mono tiny dim">FORMAÇÃO · SEM TÍTULO</p>
+        {!changingClass ? (
+          <>
+            <div className="class-opt on" style={{ maxWidth: 220 }} aria-current="true">
+              <b className="h-md">{CLASSES[p.class]?.short}</b>
+              <span className="mono tiny dim">+ {CLASSES[p.class]?.attrLabel?.toUpperCase()}</span>
+            </div>
+            <p className="muted">{CLASSES[p.class]?.label}: {CLASSES[p.class]?.focus}.</p>
+            <Btn variant="ghost" onClick={() => setChangingClass(true)}>Mudar de treino</Btn>
+          </>
+        ) : (
+          <>
+            <p className="muted">Escolha a nova formação. Seus atributos já conquistados continuam com você — só os próximos pontos de nível passam a seguir a nova classe.</p>
+            <div className="class-row">
+              {Object.values(CLASSES).map((c) => (
+                <button key={c.key} className={`class-opt ${p.class === c.key ? 'on' : ''}`} onClick={() => changeTraining(c.key)} aria-pressed={p.class === c.key}>
+                  <b className="h-md">{c.short}</b>
+                  <span className="mono tiny dim">+ {c.attrLabel.toUpperCase()}</span>
+                </button>
+              ))}
+            </div>
+            <Btn variant="ghost" onClick={() => setChangingClass(false)}>Cancelar</Btn>
+          </>
+        )}
 
         <p className="mono tiny dim">SEGUNDA CLASSE · NÍVEL {SECOND_CLASS_LEVEL}</p>
         {p.level >= SECOND_CLASS_LEVEL ? (

@@ -15,6 +15,9 @@ export default function Raid({ go }) {
   const [globalBoss, setGlobalBoss] = useState(null)
   const [biweekly, setBiweekly] = useState(null)
   const [campaign90, setCampaign90] = useState(null)
+  // o Boss de 90 dias nasce escondido atrás do portão (mesma arte da tela inicial);
+  // o caçador precisa clicar pra revelar quem está por trás
+  const [gate90Open, setGate90Open] = useState(false)
 
   useEffect(() => {
     getGlobalBoss().then(setGlobalBoss).catch(() => {})
@@ -93,16 +96,27 @@ export default function Raid({ go }) {
       )}
 
       {campaign90 && campaign90.status === 'active' && (
-        <Panel tone="gold" brackets>
-          <div className="row between">
-            <Chip tone="gold">BOSS DE CAMPANHA · 90 DIAS</Chip>
-            <span className="mono tiny dim">{Math.round((Number(campaign90.current_hp) / Number(campaign90.max_hp)) * 100)}% HP</span>
-          </div>
-          <h2 className="h-lg">{campaign90.name}</h2>
-          <SegBar value={Number(campaign90.current_hp)} max={Number(campaign90.max_hp)} tone="gold" segments={10} label="HP do boss de campanha" />
-          <p className="mono tiny dim">Cooperativo: todo treino de todo caçador soma dano. +{fmt(campaign90.reward_xp)} XP ao derrotar.</p>
-          <p className="mono tiny dim">Evento de servidor · sem opção de sair até o fim do ciclo.</p>
-        </Panel>
+        gate90Open ? (
+          <Panel tone="red" brackets>
+            <div className="row between">
+              <Chip tone="red">BOSS DE CAMPANHA · 90 DIAS</Chip>
+              <span className="mono tiny dim">{Math.round((Number(campaign90.current_hp) / Number(campaign90.max_hp)) * 100)}% HP</span>
+            </div>
+            <h2 className="h-lg">{campaign90.name}</h2>
+            <SegBar value={Number(campaign90.current_hp)} max={Number(campaign90.max_hp)} tone="red" segments={10} label="HP do boss de campanha" />
+            <p className="mono tiny dim">Cooperativo: todo treino de todo caçador soma dano. +{fmt(campaign90.reward_xp)} XP ao derrotar.</p>
+            <p className="mono tiny dim">Evento de servidor · sem opção de sair até o fim do ciclo.</p>
+          </Panel>
+        ) : (
+          <button className="panel pick gate90" onClick={() => setGate90Open(true)}>
+            <img src="/assets/portal.png" alt="" className="gate90-img" />
+            <div className="gate90-overlay">
+              <Chip tone="red">PORTÃO DE 90 DIAS · AMEAÇA DE SERVIDOR</Chip>
+              <b className="h-md">Um portão vermelho se abriu no servidor</b>
+              <span className="mono tiny">TOQUE PARA REVELAR O GUARDIÃO</span>
+            </div>
+          </button>
+        )
       )}
 
       {b && (
