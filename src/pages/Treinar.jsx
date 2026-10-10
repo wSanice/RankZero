@@ -6,7 +6,7 @@ import { useNow, useQuery, must } from '../lib/useQuery'
 import { flatExercises, getWorkouts } from '../lib/workouts'
 import { clock, damageOf, damageOfMinutes, fmt, fmt1, levelUnlocks, localDate, xpOf } from '../lib/rpg'
 import { Btn, Chip, Empty, ErrorNote, Loading, Panel, SegBar, SysHead } from '../components/ui'
-import { getBoss, getDailyMonster, getGlobalBoss, hitGlobalBoss } from '../lib/data'
+import { getBoss, getDailyMonster, getGlobalBoss, hitGlobalBoss, abandonDailyMonster } from '../lib/data'
 import { INVOKABLE_BOSSES } from '../lib/rpg'
 
 const REST_KEY = 'abibas_rest_seconds'
@@ -133,6 +133,25 @@ function SessionView({ workout, onExit, go }) {
     }
     getDailyMonster(user.id, profile.level).then(setDaily).catch(() => { })
   }, [user.id, isMiniBossDay, boss])
+
+  // Sair da dungeon diária: desiste do monstro do dia sem derrotá-lo, ele some
+  // pelo resto do dia e um novo nasce amanhã. Só o monstro diário tem essa opção —
+  // o Boss Quinzenal e o de Campanha (90 dias) são cooperativos/globais, então o
+  // caçador fica "preso" neles até o fim do ciclo (não há o que abandonar sozinho).
+  const [leavingDaily, setLeavingDaily] = useState(false)
+  const leaveDaily = async () => {
+    if (!daily) return
+    setLeavingDaily(true)
+    try {
+      await abandonDailyMonster(daily.id)
+      setDaily((d) => (d ? { ...d, status: 'abandoned' } : d))
+      notify('VOCÊ SAIU DA DUNGEON DIÁRIA')
+    } catch (e) {
+      notify(`Não foi possível sair: ${e.message}`, 'red')
+    } finally {
+      setLeavingDaily(false)
+    }
+  }
 
   const [globalBoss, setGlobalBoss] = useState(null)
 
@@ -285,9 +304,9 @@ function SessionView({ workout, onExit, go }) {
         </Panel>
       )}
       {daily && daily.status === 'active' && (
-        <Panel tone="cyan">
+        <Panel tone="amber">
           <div className="row between">
-            <Chip tone="cyan">MONSTRO DO DIA</Chip>
+            <Chip tone="amber">MONSTRO DO DIA</Chip>
             <span className="mono tiny dim">
               {Math.round((Number(daily.current_hp) / Number(daily.max_hp)) * 100)}% HP
             </span>
@@ -304,7 +323,10 @@ function SessionView({ workout, onExit, go }) {
                 : 'Sua classe não é a fraqueza deste monstro: dano normal'}
             </p>
           )}
-          <SegBar value={Number(daily.current_hp)} max={Number(daily.max_hp)} tone="cyan" label="HP do monstro diário" />
+          <SegBar value={Number(daily.current_hp)} max={Number(daily.max_hp)} tone="amber" label="HP do monstro diário" />
+          <button className="link mono tiny" disabled={leavingDaily} onClick={leaveDaily}>
+            {leavingDaily ? 'SAINDO...' : 'SAIR DA DUNGEON DIÁRIA'}
+          </button>
         </Panel>
       )}
 

@@ -88,6 +88,7 @@ export default function Raid({ go }) {
           <h2 className="h-lg">{biweekly.name}</h2>
           <SegBar value={Number(biweekly.current_hp)} max={Number(biweekly.max_hp)} tone="violet" segments={10} label="HP do boss quinzenal" />
           <p className="mono tiny dim">Cooperativo: todo treino de todo caçador soma dano. +{fmt(biweekly.reward_xp)} XP ao derrotar.</p>
+          <p className="mono tiny dim">Evento de servidor · sem opção de sair até o fim do ciclo.</p>
         </Panel>
       )}
 
@@ -100,6 +101,7 @@ export default function Raid({ go }) {
           <h2 className="h-lg">{campaign90.name}</h2>
           <SegBar value={Number(campaign90.current_hp)} max={Number(campaign90.max_hp)} tone="gold" segments={10} label="HP do boss de campanha" />
           <p className="mono tiny dim">Cooperativo: todo treino de todo caçador soma dano. +{fmt(campaign90.reward_xp)} XP ao derrotar.</p>
+          <p className="mono tiny dim">Evento de servidor · sem opção de sair até o fim do ciclo.</p>
         </Panel>
       )}
 
