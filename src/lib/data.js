@@ -1,5 +1,24 @@
 import { supabase } from './supabase'
-import { DEFAULT_BOSS, DEFAULT_MISSIONS, INVOKABLE_BOSSES, localDate } from './rpg'
+import {
+  DEFAULT_BOSS,
+  DEFAULT_MISSIONS,
+  INVOKABLE_BOSSES,
+  localDate,
+  dailyBossForLevel,
+  classDamageMultiplier,
+  BIWEEKLY_BOSS_POOL,
+  BIWEEKLY_BOSS_MAX_HP,
+  BIWEEKLY_BOSS_REWARD_XP,
+  BIWEEKLY_CYCLE_DAYS,
+  BIWEEKLY_DEADLINE_DAYS,
+  CAMPAIGN90_BOSS_POOL,
+  CAMPAIGN90_BOSS_MAX_HP,
+  CAMPAIGN90_BOSS_REWARD_XP,
+  CAMPAIGN90_CYCLE_DAYS,
+  CAMPAIGN90_DEADLINE_DAYS,
+  cycleKey,
+  pickFromPool,
+} from './rpg'
 
 // Boss ativo; se o prazo já passou, marca como expirado
 export async function getBoss(uid) {
@@ -104,16 +123,22 @@ export async function getDailyMonster(uid, level) {
   if (error) throw error
   if (existing) return existing
 
-  const maxHp = Math.round(400 * Math.max(level || 1, 1)) // escala com nível
+  // Boss do dia é escolhido pelo NÍVEL do caçador (o mais forte cujo nível <= nível
+  // do jogador), com variação determinística por data — mesma regra de rpg.js usada
+  // pelo trigger fn_apply_weight_log para aplicar o bônus de classe (weak_vs/bonus_mult).
+  const def = dailyBossForLevel(level, today)
   const { data, error: insErr } = await supabase
     .from('daily_monsters')
     .insert({
       user_id: uid,
       monster_date: today,
-      name: `MONSTRO DO DIA · NV.${level || 1}`,
-      max_hp: maxHp,
-      current_hp: maxHp,
+      name: def.name,
+      max_hp: def.max_hp,
+      current_hp: def.max_hp,
       status: 'active',
+      weak_vs: def.weak_vs,
+      bonus_mult: def.bonus_mult,
+      boss_level: Number(/NÍVEL\s+(\d+)/i.exec(def.subtitle || '')?.[1]) || 1,
     })
     .select()
     .single()
@@ -202,3 +227,74 @@ export async function getRaidPartners(raidId, myId) {
   if (error) throw error
   return data
 }
+
+// ---------- Bosses periódicos: Quinzenal e Campanha de 90 dias ----------
+// Globais/cooperativos (tabela periodic_bosses, 003_boss_fixes_and_guild_invites.sql):
+// qualquer caçador que treina bate neles (aplicado pelo trigger fn_apply_weight_log).
+// cycle_key garante que todo mundo que abrir o app dentro da mesma janela de tempo
+// cai no mesmo boss, sem depender de um cron — por isso "ensure": busca o boss do
+// ciclo atual e, se ainda não existe, cria (upsert idempotente via unique(kind, cycle_key)).
+const PERIODIC_CONFIG = {
+  quinzenal: {
+    pool: BIWEEKLY_BOSS_POOL,
+    maxHp: BIWEEKLY_BOSS_MAX_HP,
+    rewardXp: BIWEEKLY_BOSS_REWARD_XP,
+    cycleDays: BIWEEKLY_CYCLE_DAYS,
+    deadlineDays: BIWEEKLY_DEADLINE_DAYS,
+  },
+  campanha90: {
+    pool: CAMPAIGN90_BOSS_POOL,
+    maxHp: CAMPAIGN90_BOSS_MAX_HP,
+    rewardXp: CAMPAIGN90_BOSS_REWARD_XP,
+    cycleDays: CAMPAIGN90_CYCLE_DAYS,
+    deadlineDays: CAMPAIGN90_DEADLINE_DAYS,
+  },
+}
+
+export async function ensurePeriodicBoss(kind) {
+  const cfg = PERIODIC_CONFIG[kind]
+  if (!cfg) throw new Error(`Tipo de boss periódico inválido: ${kind}`)
+  const key = cycleKey(cfg.cycleDays)
+
+  const { data: existing, error } = await supabase
+    .from('periodic_bosses')
+    .select('*')
+    .eq('kind', kind)
+    .eq('cycle_key', key)
+    .maybeSingle()
+  if (error) throw error
+  if (existing) return existing
+
+  const def = pickFromPool(cfg.pool, key)
+  const deadline = new Date(Date.now() + cfg.deadlineDays * 86400000).toISOString()
+  const { data, error: insErr } = await supabase
+    .from('periodic_bosses')
+    .insert({
+      kind,
+      cycle_key: key,
+      name: def.name,
+      subtitle: def.subtitle,
+      max_hp: cfg.maxHp,
+      current_hp: cfg.maxHp,
+      reward_xp: cfg.rewardXp,
+      status: 'active',
+      deadline,
+    })
+    .select()
+    .single()
+
+  if (insErr) {
+    // corrida entre jogadores abrindo o app ao mesmo tempo: alguém já criou o
+    // boss deste ciclo, só busca de novo (unique(kind, cycle_key) garante 1 só)
+    if (insErr.code === '23505') {
+      const retry = await supabase.from('periodic_bosses').select('*').eq('kind', kind).eq('cycle_key', key).maybeSingle()
+      if (retry.error) throw retry.error
+      return retry.data
+    }
+    throw insErr
+  }
+  return data
+}
+
+export const getBiweeklyBoss = () => ensurePeriodicBoss('quinzenal')
+export const getCampaign90Boss = () => ensurePeriodicBoss('campanha90')

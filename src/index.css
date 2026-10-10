@@ -104,6 +104,10 @@ input, select, textarea { font: inherit; font-size: 16px; color: inherit; }
 .boss-icon.danger { border-color: var(--crimson); color: var(--crimson); box-shadow: 0 0 24px rgba(255, 0, 85, 0.4); }
 .panel.tone-gold { --bc: var(--gold); border-color: rgba(255, 215, 0, 0.35); }
 .panel.tone-cyan { border-color: var(--line-strong); box-shadow: 0 0 24px rgba(0, 229, 255, 0.12), inset 0 0 16px rgba(0, 229, 255, 0.04); }
+.panel.tone-violet { --bc: var(--violet); border-color: rgba(121, 40, 202, 0.4); background: linear-gradient(180deg, rgba(121, 40, 202, 0.1), var(--panel)); }
+.panel.tone-violet.brackets { --bc: var(--violet); }
+.tone-violet .sys-head { color: #d7a4ff; border-color: rgba(121, 40, 202, 0.3); }
+.tone-violet .sys-head::after { background: var(--violet); }
 .brackets { box-shadow: 0 0 24px rgba(0, 229, 255, 0.1), inset 0 0 16px rgba(0, 229, 255, 0.03); }
 .brackets::before {
   content: ''; position: absolute; inset: -1px; pointer-events: none;
@@ -166,6 +170,7 @@ button.chip { cursor: pointer; min-height: 30px; }
 .seg-pip span { display: block; height: 100%; background: var(--cyan); box-shadow: 0 0 8px rgba(0, 229, 255, 0.6); transition: width 0.4s; }
 .seg-gold .seg-pip span { background: var(--gold); box-shadow: 0 0 8px rgba(255, 215, 0, 0.5); }
 .seg-red .seg-pip span { background: var(--crimson); box-shadow: 0 0 8px rgba(255, 0, 85, 0.5); }
+.seg-violet .seg-pip span { background: var(--violet); box-shadow: 0 0 8px rgba(121, 40, 202, 0.6); }
 .bar { height: 8px; background: rgba(255, 255, 255, 0.07); }
 .bar span { display: block; height: 100%; background: var(--cyan); box-shadow: 0 0 10px rgba(0, 229, 255, 0.6); transition: width 0.4s; }
 
