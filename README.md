@@ -1,4 +1,4 @@
-# Abibas / Sistema
+# RANK0
 
 App React (Vite) com o design "System Status Interface", 100% alimentado pelo Supabase.
 
