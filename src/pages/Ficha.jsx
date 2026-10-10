@@ -8,6 +8,7 @@ import { flatExercises, getLastLogs, getWorkouts } from '../lib/workouts'
 import { fmt1, nextLetter } from '../lib/rpg'
 import { Btn, Chip, Empty, ErrorNote, Loading, Panel, SysHead } from '../components/ui'
 
+const BANNER_KEY = 'rankzero_ficha_banner_closed'
 const CARDIO = ['ESTEIRA', 'BICICLETA', 'ELÍPTICO', 'REMO ERGÔMETRO', 'ESCADA (STAIRMASTER)']
 const ISOMETRIA = ['PRANCHA']
 const LIVRE = ['HALTERES', 'BARRA / ANILHAS']
@@ -20,6 +21,11 @@ export default function Ficha({ go }) {
   const [openId, setOpenId] = useState(null)
   const [newTitle, setNewTitle] = useState('')
   const [busy, setBusy] = useState(false)
+  const [bannerClosed, setBannerClosed] = useState(() => localStorage.getItem(BANNER_KEY) === '1')
+  const closeBanner = () => {
+    localStorage.setItem(BANNER_KEY, '1')
+    setBannerClosed(true)
+  }
 
   const list = q.data || []
   const open = list.find((w) => w.id === openId)
@@ -47,11 +53,15 @@ export default function Ficha({ go }) {
 
   return (
     <div className="stack">
-      <Panel brackets>
-        <SysHead>[SISTEMA: ARQUÉTIPO & ESTRUTURA]</SysHead>
-        <h2 className="h-xl glow">Forje sua matriz de treino</h2>
-        <p className="muted">Cada exercício adicionado canaliza energia dimensional para o seu arquétipo. Crie uma ficha por dia de treino.</p>
-      </Panel>
+      {!bannerClosed && (
+        <Panel brackets>
+          <SysHead right={<button className="icon-btn plain" onClick={closeBanner} aria-label="Fechar"><X size={16} /></button>}>
+            [SISTEMA: ARQUÉTIPO & ESTRUTURA]
+          </SysHead>
+          <h2 className="h-xl glow">Forje sua matriz de treino</h2>
+          <p className="muted">Cada exercício adicionado canaliza energia dimensional para o seu arquétipo. Crie uma ficha por dia de treino.</p>
+        </Panel>
+      )}
 
       {list.length === 0 && <Empty title="Nenhuma ficha ainda">Dê um nome à sua primeira ficha abaixo, por exemplo "Peito e tríceps".</Empty>}
 

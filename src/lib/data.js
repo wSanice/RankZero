@@ -155,6 +155,16 @@ export async function getDailyMonster(uid, level) {
   return data
 }
 
+// Permite sair da dungeon do monstro do dia sem derrotá-lo (ele some pro resto do
+// dia e volta renovado amanhã). Só se aplica ao monstro diário: os bosses
+// periódicos (quinzenal/90 dias) são cooperativos e globais, então não têm opção
+// de abandono — ficar "preso" neles é intencional, o dano de qualquer caçador
+// que treina já ajuda a derrubá-los.
+export async function abandonDailyMonster(id) {
+  const { error } = await supabase.from('daily_monsters').update({ status: 'abandoned' }).eq('id', id)
+  if (error) throw error
+}
+
 export async function getGlobalBoss() {
   const { data, error } = await supabase
     .from('global_bosses')

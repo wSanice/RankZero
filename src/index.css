@@ -9,6 +9,7 @@
   --purple: #9d4edd;
   --violet: #7928ca;
   --gold: #ffd700;
+  --amber: #ff9500;
   --crimson: #ff0055;
   --text: #e2e2e9;
   --muted: #bac9cc;
@@ -108,6 +109,10 @@ input, select, textarea { font: inherit; font-size: 16px; color: inherit; }
 .panel.tone-violet.brackets { --bc: var(--violet); }
 .tone-violet .sys-head { color: #d7a4ff; border-color: rgba(121, 40, 202, 0.3); }
 .tone-violet .sys-head::after { background: var(--violet); }
+.panel.tone-amber { --bc: var(--amber); border-color: rgba(255, 149, 0, 0.4); background: linear-gradient(180deg, rgba(255, 149, 0, 0.1), var(--panel)); }
+.panel.tone-amber.brackets { --bc: var(--amber); }
+.tone-amber .sys-head { color: var(--amber); border-color: rgba(255, 149, 0, 0.3); }
+.tone-amber .sys-head::after { background: var(--amber); }
 .brackets { box-shadow: 0 0 24px rgba(0, 229, 255, 0.1), inset 0 0 16px rgba(0, 229, 255, 0.03); }
 .brackets::before {
   content: ''; position: absolute; inset: -1px; pointer-events: none;
@@ -132,6 +137,17 @@ input, select, textarea { font: inherit; font-size: 16px; color: inherit; }
 .empty { align-items: flex-start; }
 .pick { flex-direction: row; align-items: center; gap: 14px; width: 100%; color: inherit; }
 .pick:hover:not(:disabled) { border-color: var(--line-strong); }
+
+.gate90 { position: relative; flex-direction: column; align-items: stretch; padding: 0; overflow: hidden; height: 180px; border-color: rgba(255, 0, 85, 0.4); }
+.gate90:hover:not(:disabled) { border-color: var(--crimson); }
+.gate90-img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; filter: saturate(1.1) brightness(0.8); }
+.gate90-overlay {
+  position: relative; z-index: 1; display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: 8px; height: 100%; width: 100%; text-align: center; padding: 16px;
+  background: linear-gradient(180deg, rgba(8,3,4,0.35) 0%, rgba(8,3,4,0.55) 60%, rgba(8,3,4,0.85) 100%);
+}
+.gate90-overlay b { color: #ffe2e2; text-shadow: 0 0 12px rgba(255, 0, 85, 0.6); }
+.gate90-overlay .mono { color: #ffb3b3; letter-spacing: 0.06em; }
 .letter { font-size: 34px; font-weight: 800; color: var(--cyan); width: 44px; height: 44px; display: grid; place-items: center; border: 1px solid var(--line-strong); flex: none; }
 
 /* ---------- botões ---------- */
@@ -152,6 +168,7 @@ input, select, textarea { font: inherit; font-size: 16px; color: inherit; }
 .chip { display: inline-flex; align-items: center; gap: 4px; padding: 3px 8px; font: 500 10px/14px var(--f-mono); letter-spacing: 0.1em; text-transform: uppercase; border: 1px solid; }
 .chip-cyan { color: var(--cyan); border-color: rgba(0, 229, 255, 0.4); background: rgba(0, 229, 255, 0.08); }
 .chip-violet { color: #d7a4ff; border-color: rgba(157, 78, 221, 0.6); background: rgba(157, 78, 221, 0.15); }
+.chip-amber { color: var(--amber); border-color: rgba(255, 149, 0, 0.6); background: rgba(255, 149, 0, 0.15); }
 .chip-gold { color: var(--gold); border-color: rgba(255, 215, 0, 0.45); background: rgba(255, 215, 0, 0.08); }
 .chip-red { color: #ffb4ab; border-color: rgba(255, 0, 85, 0.6); background: rgba(255, 0, 85, 0.18); }
 .chip-slate { color: var(--muted); border-color: rgba(255, 255, 255, 0.15); background: rgba(255, 255, 255, 0.04); }
@@ -171,6 +188,7 @@ button.chip { cursor: pointer; min-height: 30px; }
 .seg-gold .seg-pip span { background: var(--gold); box-shadow: 0 0 8px rgba(255, 215, 0, 0.5); }
 .seg-red .seg-pip span { background: var(--crimson); box-shadow: 0 0 8px rgba(255, 0, 85, 0.5); }
 .seg-violet .seg-pip span { background: var(--violet); box-shadow: 0 0 8px rgba(121, 40, 202, 0.6); }
+.seg-amber .seg-pip span { background: var(--amber); box-shadow: 0 0 8px rgba(255, 149, 0, 0.6); }
 .bar { height: 8px; background: rgba(255, 255, 255, 0.07); }
 .bar span { display: block; height: 100%; background: var(--cyan); box-shadow: 0 0 10px rgba(0, 229, 255, 0.6); transition: width 0.4s; }
 
