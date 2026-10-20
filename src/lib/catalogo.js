@@ -1,4 +1,7 @@
 export const CATALOGO = [
+  // ===================== AO AR LIVRE (cronômetro livre: inicia, conta e para) =====================
+  { name: 'AO AR LIVRE', icon: 'corrida', exercises: ['Caminhada', 'Corrida'] },
+
   // ===================== CARDIO =====================
   { name: 'ESTEIRA', icon: 'esteira', exercises: ['Caminhada inclinada', 'Corrida leve', 'HIIT na esteira'] },
   { name: 'BICICLETA', icon: 'bicicleta', exercises: ['Pedal leve', 'Pedal intenso (spinning)'] },

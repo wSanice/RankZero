@@ -55,7 +55,7 @@ export default function App() {
     ficha: <Ficha go={go} />,
     perfil: <Perfil go={go} />,
     missoes: <Missoes go={go} />,
-    raid: <Raid go={go} />,
+    raid: <Raid go={go} params={route.params} />,
   }
 
   return (

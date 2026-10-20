@@ -1,13 +1,13 @@
 import { useMemo, useState, useEffect } from 'react'
-import { ChevronRight, Skull, Trophy } from 'lucide-react'
+import { ChevronRight, Skull, Trophy, Users } from 'lucide-react'
 import { useSession } from '../context/SessionContext'
 import { useNow, useQuery, must } from '../lib/useQuery'
 import { supabase } from '../lib/supabase'
-import { getBoss, getGlobalBoss, summonInvokableBoss, getBiweeklyBoss, getCampaign90Boss } from '../lib/data'
+import { getBoss, getGlobalBoss, summonInvokableBoss, getBiweeklyBoss, getCampaign90Boss, getRaidDamageByMember } from '../lib/data'
 import { fmt, startOfToday, INVOKABLE_BOSSES } from '../lib/rpg'
 import { Btn, Chip, ErrorNote, Loading, Panel, SegBar, SysHead } from '../components/ui'
 
-export default function Raid({ go }) {
+export default function Raid({ go, params }) {
   const { user, notify } = useSession()
   const now = useNow(60000)
   const [busy, setBusy] = useState(false)
@@ -18,6 +18,29 @@ export default function Raid({ go }) {
   // o Boss de 90 dias nasce escondido atrás do portão (mesma arte da tela inicial);
   // o caçador precisa clicar pra revelar quem está por trás
   const [gate90Open, setGate90Open] = useState(false)
+
+  // veio de "Convidar p/ raid" no Perfil: esse amigo entra como parceiro
+  // assim que uma raid for invocada
+  const invitePartnerId = params?.invitePartnerId || null
+  const [invitePartner, setInvitePartner] = useState(null)
+  useEffect(() => {
+    if (!invitePartnerId) { setInvitePartner(null); return }
+    supabase.from('profiles').select('id, hunter_name, name, tag, avatar_url').eq('id', invitePartnerId).maybeSingle()
+      .then(({ data }) => setInvitePartner(data))
+      .catch(() => {})
+  }, [invitePartnerId])
+
+  // raid em dupla ativa: dano de cada membro (eu + convidado) contra o chefe atual
+  const [raidMembers, setRaidMembers] = useState(null)
+  useEffect(() => {
+    const b = boss.data
+    if (!b || b.status !== 'active') { setRaidMembers(null); return }
+    let cancelled = false
+    getRaidDamageByMember(b.id)
+      .then((rows) => { if (!cancelled) setRaidMembers(rows.length > 1 ? rows : null) })
+      .catch(() => { if (!cancelled) setRaidMembers(null) })
+    return () => { cancelled = true }
+  }, [boss.data?.id, boss.data?.status, boss.data?.current_hp])
 
   useEffect(() => {
     getGlobalBoss().then(setGlobalBoss).catch(() => {})
@@ -50,8 +73,13 @@ export default function Raid({ go }) {
   const summon = async (bossKey) => {
     setBusy(true)
     try {
-      await summonInvokableBoss(user.id, bossKey)
-      notify('PORTAL VERMELHO ABERTO. A RAID COMEÇOU.', 'red')
+      await summonInvokableBoss(user.id, bossKey, invitePartnerId || null)
+      notify(
+        invitePartnerId
+          ? `PORTAL VERMELHO ABERTO. RAID EM DUPLA COM ${invitePartner?.hunter_name || invitePartner?.name || 'SEU AMIGO'} COMEÇOU.`
+          : 'PORTAL VERMELHO ABERTO. A RAID COMEÇOU.',
+        'red'
+      )
       await boss.reload()
     } catch (e) {
       notify(`Não foi possível invocar a raid: ${e.message}`, 'red')
@@ -69,6 +97,19 @@ export default function Raid({ go }) {
 
   return (
     <div className="stack">
+      {invitePartnerId && closed && (
+        <Panel tone="cyan" brackets>
+          <div className="row between">
+            <Chip tone="cyan"><Users size={12} style={{ verticalAlign: '-2px' }} /> CONVITE DE RAID</Chip>
+          </div>
+          <p className="muted">
+            Escolha um chefe abaixo para invocar a raid com{' '}
+            <b>{invitePartner ? `${invitePartner.hunter_name || invitePartner.name}#${invitePartner.tag}` : 'seu amigo'}</b>.
+            Os dois entram juntos e cada série de treino conta como dano individual.
+          </p>
+        </Panel>
+      )}
+
       {/* Evento global — somente leitura, nasce automaticamente a cada 30 dias */}
       {globalBoss && globalBoss.status === 'active' && (
         <Panel tone="gold" brackets>
@@ -154,6 +195,23 @@ export default function Raid({ go }) {
             <span className="cyan">Regra: 1 kg levantado × 1 rep = 1 dano</span>
             <span>{fmt(Number(b.max_hp) - Number(b.current_hp))} dano causado</span>
           </div>
+          {raidMembers && (
+            <>
+              <SysHead right={<Chip tone="cyan"><Users size={12} style={{ verticalAlign: '-2px' }} /> DUPLA</Chip>}>[DANO POR CAÇADOR]</SysHead>
+              <div className="row gap wrap">
+                {raidMembers.map((m) => {
+                  const mine = m.userId === user.id
+                  const label = m.profile?.hunter_name || m.profile?.name || 'Caçador'
+                  return (
+                    <div key={m.userId} className="reward" style={{ flex: '1 1 auto' }}>
+                      <b className={mine ? 'cyan' : ''}>{fmt(m.damage)}</b>
+                      <span className="mono tiny dim">{label}{mine ? ' (VOCÊ)' : ''} · DANO</span>
+                    </div>
+                  )
+                })}
+              </div>
+            </>
+          )}
         </Panel>
       ) : (
         <Panel className="empty">

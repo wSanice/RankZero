@@ -10,9 +10,10 @@ import { Btn, Chip, Empty, ErrorNote, Loading, Panel, SysHead } from '../compone
 
 const BANNER_KEY = 'rankzero_ficha_banner_closed'
 const CARDIO = ['ESTEIRA', 'BICICLETA', 'ELÍPTICO', 'REMO ERGÔMETRO', 'ESCADA (STAIRMASTER)']
+const CARDIO_LIVRE = ['AO AR LIVRE']
 const ISOMETRIA = ['PRANCHA']
 const LIVRE = ['HALTERES', 'BARRA / ANILHAS']
-const kindOf = (name) => (CARDIO.includes(name) ? 'cardio' : ISOMETRIA.includes(name) ? 'isometria' : LIVRE.includes(name) ? 'livre' : 'maquina')
+const kindOf = (name) => (CARDIO.includes(name) ? 'cardio' : CARDIO_LIVRE.includes(name) ? 'cardio_livre' : ISOMETRIA.includes(name) ? 'isometria' : LIVRE.includes(name) ? 'livre' : 'maquina')
 const REST_KEY = 'abibas_rest_seconds'
 
 export default function Ficha({ go }) {
@@ -309,7 +310,7 @@ function Editor({ workout, reload, onBack, onDeleted, go }) {
               {reorderMode && <GripVertical size={20} className="dim" />}
               <div>
                 <h3 className="h-md">{m.name}</h3>
-                <Chip tone={m.kind === 'cardio' ? 'violet' : 'cyan'}>{(m.kind || 'maquina').toUpperCase()}</Chip>
+                <Chip tone={m.kind === 'cardio' || m.kind === 'cardio_livre' ? 'violet' : 'cyan'}>{(m.kind || 'maquina').toUpperCase()}</Chip>
               </div>
             </div>
             
@@ -329,6 +330,7 @@ function Editor({ workout, reload, onBack, onDeleted, go }) {
             {m.exercises.map((e, eIndex) => {
               const l = last.data?.[e.id]
               const cardio = m.kind === 'cardio'
+              const cardioLivre = m.kind === 'cardio_livre'
               const isometria = m.kind === 'isometria'
               return (
                 <li key={e.id}
@@ -361,6 +363,8 @@ function Editor({ workout, reload, onBack, onDeleted, go }) {
                       <div className="targets">
                         {cardio ? (
                           <Target label="TEMPO" unit="MIN" min={1} value={e.target_minutes} onSave={(v) => saveTarget(e.id, { target_minutes: v })} />
+                        ) : cardioLivre ? (
+                          <span className="mono tiny dim">SEM META FIXA · CRONÔMETRO LIVRE (inicia, conta e você encerra quando quiser)</span>
                         ) : isometria ? (
                           <>
                             <Target label="TEMPO" unit="SEG" min={5} value={e.target_minutes} onSave={(v) => saveTarget(e.id, { target_minutes: v })} />

@@ -238,6 +238,31 @@ export async function getRaidPartners(raidId, myId) {
   return data
 }
 
+// Dano causado por CADA membro da raid (eu + convidado) contra o boss atual —
+// usado na tela de treino pra mostrar os dois caçadores e seus danos lado a lado.
+export async function getRaidDamageByMember(raidId) {
+  const { data: members, error: mErr } = await supabase
+    .from('raid_members')
+    .select('user_id, profile:profiles(hunter_name, name, tag, avatar_url, level)')
+    .eq('raid_id', raidId)
+  if (mErr) throw mErr
+
+  const { data: hits, error: hErr } = await supabase
+    .from('combat_log')
+    .select('user_id, damage')
+    .eq('boss_id', raidId)
+  if (hErr) throw hErr
+
+  const totals = {}
+  for (const h of hits) totals[h.user_id] = (totals[h.user_id] || 0) + Number(h.damage)
+
+  return members.map((m) => ({
+    userId: m.user_id,
+    profile: m.profile,
+    damage: totals[m.user_id] || 0,
+  }))
+}
+
 // ---------- Bosses periódicos: Quinzenal e Campanha de 90 dias ----------
 // Globais/cooperativos (tabela periodic_bosses, 003_boss_fixes_and_guild_invites.sql):
 // qualquer caçador que treina bate neles (aplicado pelo trigger fn_apply_weight_log).

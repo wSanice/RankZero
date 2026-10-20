@@ -6,15 +6,27 @@ import { useNow, useQuery, must } from '../lib/useQuery'
 import { flatExercises, getWorkouts } from '../lib/workouts'
 import { clock, damageOf, damageOfMinutes, fmt, fmt1, levelUnlocks, localDate, xpOf } from '../lib/rpg'
 import { Btn, Chip, Empty, ErrorNote, Loading, Panel, SegBar, SysHead } from '../components/ui'
-import { getBoss, getDailyMonster, getGlobalBoss, hitGlobalBoss, abandonDailyMonster } from '../lib/data'
+import { getBoss, getDailyMonster, getGlobalBoss, hitGlobalBoss, abandonDailyMonster, getRaidPartners, getRaidDamageByMember } from '../lib/data'
 import { INVOKABLE_BOSSES } from '../lib/rpg'
 
 const REST_KEY = 'abibas_rest_seconds'
 export const getRestSeconds = () => Number(localStorage.getItem(REST_KEY)) || 90
 
+// a ficha ativa (qual ficha o caçador estava treinando) sobrevive à troca de
+// tela — assim, sair pro início/ficha e voltar pra "Treinar" retoma o mesmo
+// treino em vez de mostrar a lista de fichas de novo
+const activeWorkoutKey = (uid) => `rankzero_active_workout_${uid}`
+
 export default function Treinar({ go, params }) {
-  const [workoutId, setWorkoutId] = useState(params?.workoutId || null)
+  const { user } = useSession()
+  const [workoutId, setWorkoutId] = useState(() => params?.workoutId || localStorage.getItem(activeWorkoutKey(user.id)) || null)
   const q = useQuery(getWorkouts, [])
+
+  useEffect(() => {
+    const key = activeWorkoutKey(user.id)
+    if (workoutId) localStorage.setItem(key, workoutId)
+    else localStorage.removeItem(key)
+  }, [workoutId, user.id])
 
   if (q.loading) return <Loading />
   if (q.error) return <ErrorNote error={q.error} />
@@ -53,43 +65,94 @@ export default function Treinar({ go, params }) {
     )
   }
 
-  return <SessionView key={workout.id} workout={workout} onExit={() => setWorkoutId(null)} go={go} />
+  // "trocar ficha" só tira a ficha ativa de vista — o progresso dela fica salvo
+  // e retoma sozinho se o caçador escolhê-la de novo na lista
+  return (
+    <SessionView
+      key={workout.id}
+      workout={workout}
+      onExit={() => setWorkoutId(null)}
+      onFinishAll={() => setWorkoutId(null)}
+      go={go}
+    />
+  )
 }
 
-function SessionView({ workout, onExit, go }) {
+// progresso da sessão (exercício atual, séries feitas, descanso, se já terminou)
+// — salvo por caçador + ficha, pra sobreviver a navegar pra outra tela e voltar
+const sessionStateKey = (uid, workoutId) => `rankzero_session_state_${uid}_${workoutId}`
+const loadSessionState = (key) => {
+  try {
+    const raw = localStorage.getItem(key)
+    return raw ? JSON.parse(raw) : null
+  } catch {
+    return null
+  }
+}
+
+function SessionView({ workout, onExit, onFinishAll, go }) {
   const { user, profile, refreshProfile, awardXp, notify } = useSession()
+  const stateKey = sessionStateKey(user.id, workout.id)
+  const saved = useMemo(() => loadSessionState(stateKey), [stateKey])
+
   const now = useNow(500)
   const exercises = useMemo(() => flatExercises(workout), [workout])
-  const [idx, setIdx] = useState(0)
-  const [done, setDone] = useState({}) // exerciseId -> [{weight, reps, dmg}]
+  const [idx, setIdx] = useState(saved?.idx ?? 0)
+  const [done, setDone] = useState(saved?.done ?? {}) // exerciseId -> [{weight, reps, dmg}]
   const [saving, setSaving] = useState(false)
-  const [restEnd, setRestEnd] = useState(0)
-  const [finished, setFinished] = useState(false)
-  const startedAt = useRef(Date.now())
+  const [restEnd, setRestEnd] = useState(saved?.restEnd ?? 0)
+  const [finished, setFinished] = useState(saved?.finished ?? false)
+  const startedAt = useRef(saved?.startedAt ?? Date.now())
   const [boss, setBoss] = useState(null)
+
+  // persiste a sessão a cada mudança relevante, pra retomar de onde parou
+  // se o caçador sair da tela (tela inicial, ficha, etc.) e voltar depois
+  useEffect(() => {
+    localStorage.setItem(stateKey, JSON.stringify({ idx, done, restEnd, finished, startedAt: startedAt.current }))
+  }, [stateKey, idx, done, restEnd, finished])
+
+  const clearSession = () => {
+    try { localStorage.removeItem(stateKey) } catch { }
+  }
 
   const ex = exercises[idx]
   const sets = done[ex?.id] || []
   const isCardio = ex?.kind === 'cardio'
+  const isCardioLivre = ex?.kind === 'cardio_livre'
   const isIsometria = ex?.kind === 'isometria'
 
   const timerKey = ex ? `cardio_timer_${ex.id}` : null
-  const [timer, setTimer] = useState(null) // { endAt, running, remainingMs }
+  const [timer, setTimer] = useState(null) // regressivo: { endAt, running, remainingMs }
   const autoCompletedRef = useRef(false)
+
+  // cronômetro livre (caminhada/corrida ao ar livre): conta PRA CIMA a partir
+  // de 0, sem meta fixa — inicia, conta e só encerra quando o caçador manda,
+  // e ao parar salva o tempo decorrido como duration_min da sessão
+  const stopwatchKey = ex ? `cardio_stopwatch_${ex.id}` : null
+  const [stopwatch, setStopwatch] = useState(null) // { startedAt, running, elapsedMs }
 
   // carrega/recarrega o timer salvo sempre que troca de exercício
   useEffect(() => {
     autoCompletedRef.current = false
-    if (!timerKey) { setTimer(null); return }
+    if (!timerKey) { setTimer(null); setStopwatch(null); return }
     const raw = localStorage.getItem(timerKey)
     setTimer(raw ? JSON.parse(raw) : null)
-  }, [timerKey])
+    const rawSw = localStorage.getItem(stopwatchKey)
+    setStopwatch(rawSw ? JSON.parse(rawSw) : null)
+  }, [timerKey, stopwatchKey])
 
   const saveTimer = (t) => {
     setTimer(t)
     if (!timerKey) return
     if (t) localStorage.setItem(timerKey, JSON.stringify(t))
     else localStorage.removeItem(timerKey)
+  }
+
+  const saveStopwatch = (s) => {
+    setStopwatch(s)
+    if (!stopwatchKey) return
+    if (s) localStorage.setItem(stopwatchKey, JSON.stringify(s))
+    else localStorage.removeItem(stopwatchKey)
   }
 
   const startTimer = () => {
@@ -105,6 +168,28 @@ function SessionView({ workout, onExit, go }) {
   }
   const cancelTimer = () => saveTimer(null)
 
+  const startStopwatch = () => {
+    saveStopwatch({ startedAt: Date.now(), running: true, elapsedMs: 0 })
+  }
+  const pauseStopwatch = () => {
+    if (!stopwatch?.running) return
+    saveStopwatch({ ...stopwatch, running: false, elapsedMs: Date.now() - stopwatch.startedAt })
+  }
+  const resumeStopwatch = () => {
+    if (stopwatch?.running) return
+    saveStopwatch({ startedAt: Date.now() - (stopwatch.elapsedMs || 0), running: true, elapsedMs: stopwatch.elapsedMs })
+  }
+  const cancelStopwatch = () => saveStopwatch(null)
+
+  const stopwatchElapsedMs = stopwatch ? (stopwatch.running ? Date.now() - stopwatch.startedAt : stopwatch.elapsedMs) : 0
+
+  // "Parar": encerra o cronômetro livre e grava o tempo feito como a sessão
+  const stopStopwatch = () => {
+    const ms = stopwatch ? (stopwatch.running ? Date.now() - stopwatch.startedAt : stopwatch.elapsedMs) : 0
+    cancelStopwatch()
+    complete({ minutesOverride: ms / 60000 })
+  }
+
   const timerRemainingMs = timer ? (timer.running ? Math.max(0, timer.endAt - now) : timer.remainingMs) : 0
   const timerDone = timer && timer.running && timerRemainingMs <= 0
 
@@ -119,6 +204,18 @@ function SessionView({ workout, onExit, go }) {
   useEffect(() => {
     getBoss(user.id).then(setBoss).catch(() => { })
   }, [user.id])
+
+  // raid em dupla: quando a raid ativa tem um amigo convidado, mostra os dois
+  // caçadores e o dano de cada um contra o chefe
+  const [raidMembers, setRaidMembers] = useState(null)
+  useEffect(() => {
+    if (!boss || boss.status !== 'active') { setRaidMembers(null); return }
+    let cancelled = false
+    getRaidDamageByMember(boss.id)
+      .then((rows) => { if (!cancelled) setRaidMembers(rows.length > 1 ? rows : null) })
+      .catch(() => { if (!cancelled) setRaidMembers(null) })
+    return () => { cancelled = true }
+  }, [boss?.id, boss?.status, boss?.current_hp])
 
   const [daily, setDaily] = useState(null)
 
@@ -187,16 +284,23 @@ function SessionView({ workout, onExit, go }) {
   const sessionSets = Object.values(done).flat().length
   const sessionXp = Object.values(done).flat().reduce((s, r) => s + xpOf(r.dmg), 0)
   const restLeft = Math.max(0, restEnd - now)
-  const rows = isCardio ? Math.max(prev.length, sets.length + 1, 1) : Math.max(prev.length, sets.length + 1, ex?.target_sets || 3)
-  const previewDmg = isCardio ? damageOfMinutes(targetMinutes) : damageOf(targetWeight, targetReps)
-  const setsComplete = !isCardio && sets.length >= (ex?.target_sets || 3)
+  const rows = (isCardio || isCardioLivre) ? Math.max(prev.length, sets.length + 1, 1) : Math.max(prev.length, sets.length + 1, ex?.target_sets || 3)
+  const previewDmg = isCardioLivre ? damageOfMinutes(stopwatchElapsedMs / 60000) : isCardio ? damageOfMinutes(targetMinutes) : damageOf(targetWeight, targetReps)
+  const setsComplete = !isCardio && !isCardioLivre && sets.length >= (ex?.target_sets || 3)
 
-  const complete = async () => {
+  const complete = async ({ minutesOverride } = {}) => {
     if (isCardio) cancelTimer()
     let row
     let dmg
     let entry
-    if (isCardio) {
+    if (isCardioLivre) {
+      // caminhada/corrida ao ar livre: sem meta — o tempo gravado é o que o
+      // cronômetro livre mediu (mínimo de 0.1 min pra evitar sessão de 0 dano)
+      const mins = Math.max(0.1, Number(minutesOverride) || 0)
+      row = { exercise_id: ex.id, weight: 0, reps: 0, duration_min: mins }
+      dmg = damageOfMinutes(mins)
+      entry = { minutes: mins, dmg }
+    } else if (isCardio) {
 
       row = { exercise_id: ex.id, weight: 0, reps: 0, duration_min: targetMinutes }
       dmg = damageOfMinutes(targetMinutes)
@@ -274,8 +378,8 @@ function SessionView({ workout, onExit, go }) {
           </div>
           <p className="mono gold">+{fmt(sessionXp)} XP GRAVADO</p>
         </Panel>
-        <Btn onClick={() => go('inicio')}>Voltar ao início</Btn>
-        <Btn variant="ghost" onClick={onExit}>Treinar outra ficha</Btn>
+        <Btn onClick={() => { clearSession(); onFinishAll ? onFinishAll() : onExit(); go('inicio') }}>Voltar ao início</Btn>
+        <Btn variant="ghost" onClick={() => { clearSession(); onFinishAll ? onFinishAll() : onExit() }}>Treinar outra ficha</Btn>
       </div>
     )
   }
@@ -296,11 +400,25 @@ function SessionView({ workout, onExit, go }) {
       {boss && boss.status === 'active' && (
         <Panel tone="red">
           <div className="row between">
-            <Chip tone="red">RAID ATIVA</Chip>
+            <Chip tone="red">{raidMembers ? 'RAID EM DUPLA ATIVA' : 'RAID ATIVA'}</Chip>
             <span className="mono tiny dim">{Math.round(bossPct * 100)}% HP</span>
           </div>
           <h3 className="h-md">{boss.name}</h3>
           <SegBar value={Number(boss.current_hp)} max={Number(boss.max_hp)} tone="gold" label="HP do chefe" />
+          {raidMembers && (
+            <div className="row gap wrap" style={{ marginTop: '0.5rem' }}>
+              {raidMembers.map((m) => {
+                const mine = m.userId === user.id
+                const label = m.profile?.hunter_name || m.profile?.name || 'Caçador'
+                return (
+                  <div key={m.userId} className="reward" style={{ flex: '1 1 auto' }}>
+                    <b className={mine ? 'cyan' : ''}>{fmt(m.damage)}</b>
+                    <span className="mono tiny dim">{label}{mine ? ' (VOCÊ)' : ''} · DANO</span>
+                  </div>
+                )
+              })}
+            </div>
+          )}
         </Panel>
       )}
       {daily && daily.status === 'active' && (
@@ -357,13 +475,13 @@ function SessionView({ workout, onExit, go }) {
         </div>
 
         <p className="mono tiny cyan">
-          META: {isCardio ? `${targetMinutes} MIN` : `${ex.target_sets || 3} × ${targetReps}${targetWeight > 0 ? ` · ${fmt1(targetWeight)} KG` : ''}`}
+          META: {isCardioLivre ? 'LIVRE · SEM TEMPO FIXO' : isCardio ? `${targetMinutes} MIN` : `${ex.target_sets || 3} × ${targetReps}${targetWeight > 0 ? ` · ${fmt1(targetWeight)} KG` : ''}`}
         </p>
-        <p className="mono tiny dim">{isCardio ? 'SESSÃO' : 'SÉRIE'} {Math.min(sets.length + 1, ex.target_sets || 3)} · {fmt(sets.length)} CONCLUÍDA{sets.length === 1 ? '' : 'S'}</p>
+        <p className="mono tiny dim">{(isCardio || isCardioLivre) ? 'SESSÃO' : 'SÉRIE'} {Math.min(sets.length + 1, ex.target_sets || 3)} · {fmt(sets.length)} CONCLUÍDA{sets.length === 1 ? '' : 'S'}</p>
 
         <div className="sets" role="table" aria-label="Séries">
           <div className="sets-head mono tiny" role="row">
-            <span>{isCardio ? 'SESSÃO' : 'SÉRIE'}</span><span>ANTERIOR</span><span>HOJE</span>
+            <span>{(isCardio || isCardioLivre) ? 'SESSÃO' : 'SÉRIE'}</span><span>ANTERIOR</span><span>HOJE</span>
           </div>
           {Array.from({ length: rows }, (_, i) => {
             const isDone = sets[i]
@@ -377,7 +495,7 @@ function SessionView({ workout, onExit, go }) {
                   <b>{isDone.minutes != null ? `${fmt1(isDone.minutes)} min` : `${fmt1(isDone.weight)} kg × ${isDone.reps}`}</b>
                 ) : isActive ? (
                   <span className="mono">
-                    {isCardio ? `${fmt1(targetMinutes)} min` : `${fmt1(targetWeight)} kg × ${targetReps}`}
+                    {isCardioLivre ? 'cronômetro livre' : isCardio ? `${fmt1(targetMinutes)} min` : `${fmt1(targetWeight)} kg × ${targetReps}`}
                   </span>
                 ) : (
                   <span className="dim">—</span>
@@ -387,9 +505,36 @@ function SessionView({ workout, onExit, go }) {
           })}
         </div>
 
-        <p className="mono tiny gold"><Zap size={12} style={{ verticalAlign: '-2px' }} /> Esta {isCardio ? 'sessão' : 'série'} vale +{xpOf(previewDmg)} XP · {fmt(previewDmg)} dano</p>
+        <p className="mono tiny gold"><Zap size={12} style={{ verticalAlign: '-2px' }} /> Esta sessão vale +{xpOf(previewDmg)} XP · {fmt(previewDmg)} dano</p>
 
-        {isCardio ? (
+        {isCardioLivre ? (
+          <>
+            <div className="info-row timer">
+              <Timer size={20} className="cyan" />
+              <div className="grow">
+                <p className="mono tiny dim">{stopwatch ? (stopwatch.running ? 'CRONÔMETRO ATIVO' : 'PAUSADO') : 'PARADO'}</p>
+                <p className="timer-num">{clock(stopwatchElapsedMs)}</p>
+              </div>
+            </div>
+            {!stopwatch && (
+              <Btn icon={Swords} className="cta" disabled={saving || restActive} onClick={startStopwatch}>
+                Iniciar
+              </Btn>
+            )}
+            {stopwatch && stopwatch.running && (
+              <div className="row gap">
+                <Btn variant="ghost" onClick={pauseStopwatch}>Pausar</Btn>
+                <Btn variant="danger" onClick={stopStopwatch} disabled={saving}>{saving ? 'Gravando...' : 'Parar & registrar'}</Btn>
+              </div>
+            )}
+            {stopwatch && !stopwatch.running && (
+              <div className="row gap">
+                <Btn onClick={resumeStopwatch}>Retomar</Btn>
+                <Btn variant="danger" onClick={stopStopwatch} disabled={saving}>{saving ? 'Gravando...' : 'Parar & registrar'}</Btn>
+              </div>
+            )}
+          </>
+        ) : isCardio ? (
           <>
             {timer && (
               <div className="info-row timer">
